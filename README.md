@@ -18,7 +18,7 @@ else; it never writes to it, and it never changes the game, the server or any pl
 > all by name. Leaderboards rank everyone the classic way, per skill and overall; tied
 > players share a rank, and the server's staff are left off unless "Show staff" is
 > switched on. The economy screen totals every coin and every item held, across
-> all inventories and banks. The header shows how fresh the data
+> all inventories and banks, and each item links to a page of who holds it. The header shows how fresh the data
 > is.
 
 ## Requirements

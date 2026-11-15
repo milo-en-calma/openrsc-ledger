@@ -1,4 +1,4 @@
-import { Alert, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput, Title, UnstyledButton } from "@mantine/core";
+import { Alert, Anchor, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput, Title, UnstyledButton } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   createColumnHelper,
@@ -10,6 +10,7 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
 
@@ -27,7 +28,17 @@ const itemName = (item: ItemHoldings) => item.name ?? `Item ${item.itemId}`;
 const amount = (value: number) => value.toLocaleString();
 
 const columns = column.columns([
-  column.accessor(itemName, { id: "name", header: "Item", sortFn: "alphanumeric" }),
+  column.accessor(itemName, {
+    id: "name",
+    header: "Item",
+    sortFn: "alphanumeric",
+    // Each item links to who has it.
+    cell: (cell) => (
+      <Anchor component={Link} to={`/items/${cell.row.original.itemId}`}>
+        {cell.getValue()}
+      </Anchor>
+    ),
+  }),
   column.accessor((item) => item.held.total, {
     id: "total",
     header: "Total",
@@ -102,7 +113,8 @@ export function EconomyPage() {
 
       <Title order={3}>Items held</Title>
       <Text c="dimmed" size="sm">
-        Every item anyone holds, across every inventory and bank. Noted items count as the item.
+        Every item anyone holds, across every inventory and bank. Noted items count as the item. Pick an item to see
+        who has it.
       </Text>
       <TextInput
         placeholder="Search by name"

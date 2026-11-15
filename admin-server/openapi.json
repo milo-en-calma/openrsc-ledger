@@ -243,6 +243,60 @@
         },
         "deprecated" : false
       }
+    },
+    "/api/items/{itemId}/holders" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "Everyone holding one item, in their inventory or bank. Noted items count as the item.",
+        "parameters" : [ {
+          "name" : "itemId",
+          "in" : "path",
+          "description" : "The item's number, as the economy lists it.",
+          "required" : true,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The item's holders, from the latest copy of the server's database. Empty if nobody holds it.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ItemHolders"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "The game data names no item with that number, and nobody holds one.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "The ledger hasn't copied the server's database yet.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
     }
   },
   "components" : {
@@ -540,6 +594,47 @@
           }
         },
         "required" : [ "coins", "items" ]
+      },
+      "ItemHolderRow" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "staff" : {
+            "type" : "boolean"
+          },
+          "held" : {
+            "$ref" : "#/components/schemas/Holdings"
+          }
+        },
+        "required" : [ "held", "name", "playerId", "staff" ]
+      },
+      "ItemHolders" : {
+        "type" : "object",
+        "properties" : {
+          "itemId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : [ "null", "string" ]
+          },
+          "held" : {
+            "$ref" : "#/components/schemas/Holdings"
+          },
+          "holders" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ItemHolderRow"
+            }
+          }
+        },
+        "required" : [ "held", "holders", "itemId" ]
       }
     },
     "examples" : { }

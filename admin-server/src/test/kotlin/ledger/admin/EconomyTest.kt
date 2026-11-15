@@ -36,8 +36,31 @@ class EconomyTest {
     }
 
     @Test
+    fun `lists who holds an item, with the world's total`() = testApplication {
+        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+        assertEquals(
+            """{"itemId":10,"name":"Coins","held":{"inInventories":1250,"inBanks":50000,"total":51250},"holders":[""" +
+                """{"playerId":1,"name":"Bramblewick","staff":false,"held":{"inInventories":1250,"inBanks":50000,"total":51250}}]}""",
+            client.get("/api/items/10/holders").bodyAsText(),
+        )
+    }
+
+    @Test
+    fun `a named item nobody holds has no holders, and an unknown one isn't found`() = testApplication {
+        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+        // Item 1 is an iron short sword, which nobody in the test database holds.
+        assertEquals(
+            """{"itemId":1,"name":"Iron Short Sword","held":{"inInventories":0,"inBanks":0,"total":0},"holders":[]}""",
+            client.get("/api/items/1/holders").bodyAsText(),
+        )
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/items/999999/holders").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/items/coins/holders").status)
+    }
+
+    @Test
     fun `waits for the first copy`() = testApplication {
         application { adminModule(lastCopy = { null }, gameData = SqliteGameData(copy)) }
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/economy").status)
+        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/items/10/holders").status)
     }
 }

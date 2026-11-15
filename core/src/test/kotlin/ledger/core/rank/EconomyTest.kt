@@ -3,6 +3,7 @@ package ledger.core.rank
 import ledger.core.fixture.Fixtures
 import ledger.core.game.HoldingRecord
 import ledger.core.game.Place
+import ledger.core.game.PlayerSummary
 import ledger.core.game.SqliteGameData
 import java.nio.file.Files
 import kotlin.test.Test
@@ -37,6 +38,25 @@ class EconomyTest {
             HoldingRecord(2, Place.BANK, 9, 1),
         )
         assertEquals(listOf(9, 5), Economy.itemTotals(holdings).map { it.itemId })
+    }
+
+    @Test
+    fun `lists an item's holders most first, then by name, leaving out unknown players`() {
+        fun player(id: Int, name: String) = PlayerSummary(id, name, combatLevel = 3, totalLevel = 27, lastLogin = null, online = false)
+        val players = listOf(player(1, "Wren"), player(2, "alder"), player(3, "Birch"))
+        val holdings = listOf(
+            HoldingRecord(1, Place.INVENTORY, 14, 5),
+            HoldingRecord(1, Place.BANK, 14, 20),
+            HoldingRecord(2, Place.BANK, 14, 1),
+            HoldingRecord(2, Place.INVENTORY, 14, 4),
+            HoldingRecord(3, Place.BANK, 14, 5),
+            HoldingRecord(3, Place.BANK, COINS, 900),
+            HoldingRecord(4, Place.BANK, 14, 70),
+        )
+        assertEquals(
+            listOf(Triple("Wren", 5L, 20L), Triple("alder", 4L, 1L), Triple("Birch", 0L, 5L)),
+            Economy.holders(14, holdings, players).map { Triple(it.player.name, it.inInventory, it.inBank) },
+        )
     }
 
     @Test
