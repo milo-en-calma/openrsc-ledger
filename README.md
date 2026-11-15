@@ -12,7 +12,7 @@ carries, are planned as a separate build of the same code.
 else; it never writes to it, and it never changes the game, the server or any player.
 
 > **Status:** early. One command starts the game server and the ledger, which keeps a
-> fresh copy of the server's database. The first screen lists every player, with their
+> fresh copy of the server's database and records how every player's skills change. The first screen lists every player, with their
 > combat level, total level and last login, sortable and searchable by name; the header
 > shows how fresh the data is.
 
@@ -84,6 +84,16 @@ ignores; it holds everything the game database holds, so keep it private.
 **It never reads players' secrets.** The server's `players` table also holds each
 player's password hash, salt, email address and IP addresses. The ledger's table
 definitions don't declare those columns at all, so no query it makes can select them.
+
+**It keeps its own history.** The server keeps only the present, so after each copy the
+ledger records, in its own SQLite file (`data-dir/history.db`), every player's skill
+whose experience or level changed: one row with the full new value and the time the
+server saved it, not the difference. A latest value is then a single lookup, a gain over
+a period is the latest value minus the last one before the period began, and a player who
+is away for a week writes nothing. It compares with what it has recorded, not with the
+previous copy, so changes made while the ledger was stopped are caught at its next copy.
+Experience is kept exactly as the server stores it. History can't be recovered later, so
+keep the file: it's the only record of the past.
 
 **"Last login" is as close as it gets to "last seen".** The server records when a player
 logs in and whether they are online, but not when they log out.

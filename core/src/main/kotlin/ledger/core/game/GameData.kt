@@ -13,6 +13,9 @@ interface GameData {
      * [search] is null or blank, sorted by name.
      */
     fun players(search: String? = null): List<PlayerSummary>
+
+    /** Every player's experience and full level in every skill. */
+    fun allSkills(): List<PlayerSkills>
 }
 
 /** One player, as the player list shows them. */

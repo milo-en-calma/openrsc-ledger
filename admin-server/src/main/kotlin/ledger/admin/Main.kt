@@ -8,6 +8,7 @@ import ledger.core.config.LedgerConfig
 import ledger.core.copy.DatabaseCopier
 import ledger.core.copy.DatabaseCopyLoop
 import ledger.core.game.SqliteGameData
+import ledger.core.history.HistoryStore
 import ledger.core.openrsc.OpenRscServer
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
@@ -42,12 +43,18 @@ fun main(args: Array<String>) {
 
     val liveDatabase = orExit { server.database() }
     val copier = DatabaseCopier(liveDatabase, config.dataDir.resolve("server-copy.db"))
-    val copyLoop = DatabaseCopyLoop(liveDatabase, copier, config.copy)
+    val gameData = SqliteGameData(copier.copy)
+    val history = HistoryStore(config.dataDir.resolve("history.db"))
+    // Each copy's changes are stamped with the server's save time, not the copy's.
+    val copyLoop = DatabaseCopyLoop(liveDatabase, copier, config.copy) { copy ->
+        val written = history.record(copy.liveModified, gameData.allSkills())
+        if (written > 0) { log.info("Recorded {} skill changes", written) }
+    }
     log.info("Reading the server's database {} through a copy at {}", liveDatabase, copier.copy)
 
     embeddedServer(Netty, host = HOST, port = config.port) {
         launch(Dispatchers.IO) { copyLoop.run() }
-        adminModule(lastCopy = { copyLoop.lastCopy }, gameData = SqliteGameData(copier.copy))
+        adminModule(lastCopy = { copyLoop.lastCopy }, gameData = gameData)
     }.start(wait = true)
 }
 

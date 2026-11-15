@@ -6,6 +6,7 @@ import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -26,12 +27,24 @@ class DatabaseCopyLoopTest {
     private val clock = object : Clock {
         override fun now() = now
     }
-    private val loop = DatabaseCopyLoop(live, DatabaseCopier(live, dir.resolve("copy.db")), config, clock)
+    private val hookCalls = mutableListOf<CopyRecord>()
+    private val loop = DatabaseCopyLoop(live, DatabaseCopier(live, dir.resolve("copy.db")), config, clock, onCopy = hookCalls::add)
 
     /** Moves time on, and has the server "save" at the new time if [save]. */
     private fun advance(by: Duration, save: Boolean) {
         now += by
         if (save) { Files.setLastModifiedTime(live, FileTime.from(now.toJavaInstant())) }
+    }
+
+    @Test
+    fun `runs the hook once after each copy, and not when nothing is copied`() {
+        loop.checkOnce()
+        advance(by = 15.seconds, save = false)
+        loop.checkOnce()
+        advance(by = 2.minutes, save = true)
+        loop.checkOnce()
+        assertEquals(listOf(start, start + 15.seconds + 2.minutes), hookCalls.map { it.copiedAt })
+        assertEquals(loop.lastCopy, hookCalls.last())
     }
 
     @Test

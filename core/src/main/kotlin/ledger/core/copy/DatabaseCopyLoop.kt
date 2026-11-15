@@ -19,19 +19,23 @@ data class CopyRecord(val copiedAt: Instant, val liveModified: Instant)
  * last copy and that copy is at least [CopyConfig.atMostEvery] old. The first check always
  * copies. The copy can never be fresher than the server's last save, so copying on change
  * is as fresh as it gets, and nothing is copied while nothing happens.
+ *
+ * [onCopy] runs after each copy, with that copy's record. If it fails, the copy still
+ * counts, and the failure is logged like a failed copy.
  */
 class DatabaseCopyLoop(
     private val live: Path,
     private val copier: DatabaseCopier,
     private val config: CopyConfig,
     private val clock: Clock = Clock.System,
+    private val onCopy: (CopyRecord) -> Unit = {},
 ) {
     /** The newest copy, or null before the first one. */
     @Volatile
     var lastCopy: CopyRecord? = null
         private set
 
-    /** Checks once, copying if it's time. Returns whether it copied. */
+    /** Checks once, copying if it's time. Returns whether it copied; throws if the copy or [onCopy] failed. */
     fun checkOnce(): Boolean {
         // Read before copying, so a save made during the copy counts as a change next time.
         val liveModified = Files.getLastModifiedTime(live).toInstant().toKotlinInstant()
@@ -39,7 +43,9 @@ class DatabaseCopyLoop(
         if (!shouldCopy(lastCopy, liveModified, now, config)) { return false }
 
         copier.copy()
-        lastCopy = CopyRecord(copiedAt = now, liveModified = liveModified)
+        val record = CopyRecord(copiedAt = now, liveModified = liveModified)
+        lastCopy = record
+        onCopy(record)
         return true
     }
 

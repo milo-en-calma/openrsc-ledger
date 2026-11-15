@@ -2,6 +2,7 @@ package ledger.core.game
 
 import ledger.core.sqlite.openReadOnly
 import org.jetbrains.exposed.v1.core.DatabaseConfig
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.like
@@ -33,6 +34,20 @@ class SqliteGameData(file: Path) : GameData {
             query.where { Players.username.lowerCase() like containing(search.trim().lowercase()) }
         }
         query.orderBy(Players.username.lowerCase()).map { it.toPlayerSummary() }
+    }
+
+    override fun allSkills(): List<PlayerSkills> = transaction(database) {
+        Experience.join(MaxStats, JoinType.INNER, Experience.playerId, MaxStats.playerId)
+            .selectAll()
+            .orderBy(Experience.playerId)
+            .map { row ->
+                PlayerSkills(
+                    playerId = row[Experience.playerId],
+                    skills = Skill.entries.associateWith { skill ->
+                        SkillValue(experience = row[Experience.skill.getValue(skill)], level = row[MaxStats.skill.getValue(skill)])
+                    },
+                )
+            }
     }
 
     private fun ResultRow.toPlayerSummary() = PlayerSummary(

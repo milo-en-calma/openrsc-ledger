@@ -1,5 +1,6 @@
 package ledger.core.game
 
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 
 /**
@@ -20,3 +21,17 @@ internal object Players : Table("players") {
 
     override val primaryKey = PrimaryKey(id)
 }
+
+/** A table with one column per skill, keyed by player: `experience`, `maxstats` or `curstats`. */
+internal open class SkillTable(name: String) : Table(name) {
+    val playerId = integer("playerID")
+    val skill: Map<Skill, Column<Int>> = Skill.entries.associateWith { integer(it.column) }
+
+    override val primaryKey = PrimaryKey(playerId)
+}
+
+/** Each player's experience per skill, as the server stores it. */
+internal object Experience : SkillTable("experience")
+
+/** Each player's full level per skill, before boosts and drains. */
+internal object MaxStats : SkillTable("maxstats")
