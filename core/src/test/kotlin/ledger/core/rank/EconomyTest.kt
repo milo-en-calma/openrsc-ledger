@@ -1,11 +1,8 @@
 package ledger.core.rank
 
-import ledger.core.fixture.Fixtures
 import ledger.core.game.HoldingRecord
 import ledger.core.game.Place
 import ledger.core.game.PlayerSummary
-import ledger.core.game.SqliteGameData
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -63,16 +60,5 @@ class EconomyTest {
     fun `totals don't overflow`() {
         val holdings = List(3) { HoldingRecord(it, Place.BANK, COINS, Int.MAX_VALUE) }
         assertEquals(3L * Int.MAX_VALUE, Economy.itemTotals(holdings).single().total)
-    }
-
-    @Test
-    fun `reads every held item from the database`() {
-        val gameData = SqliteGameData(Fixtures.database(Files.createTempDirectory("economy").resolve("copy.db")))
-        val totals = Economy.itemTotals(gameData.allHeldItems()).associateBy { it.itemId }
-        assertEquals(ItemTotal(COINS, inInventories = 1250, inBanks = 50000, holders = 1), totals[COINS])
-        // The 120 logs are banked as a note; they count as logs.
-        assertEquals(ItemTotal(14, inInventories = 0, inBanks = 120, holders = 1), totals[14])
-        // Seven kinds of item: coins are both carried and banked.
-        assertEquals(7, totals.size)
     }
 }

@@ -4,7 +4,6 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.jsonArray
-import ledger.admin.routes.NO_COPY_YET
 import ledger.core.game.SqliteGameData
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,13 +32,6 @@ class PlayersTest {
     }
 
     @Test
-    fun `says there is no data before the first copy`() = adminTest(game, copied = false) {
-        val response = client.get("/api/players")
-        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
-        assertEquals("""{"message":"$NO_COPY_YET"}""", response.bodyAsText())
-    }
-
-    @Test
     fun `a player's page shows experience as players see it, every skill, and quests`() = adminTest(game) {
         val body = client.get("/api/players/1").bodyAsText()
         assertTrue(body.startsWith("""{"player":{"id":1,"name":"Bramblewick","""), body)
@@ -53,11 +45,6 @@ class PlayersTest {
     fun `an unknown player is not found`() = adminTest(game) {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/players/99").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/api/players/not-a-number").status)
-    }
-
-    @Test
-    fun `a player's page has no data before the first copy`() = adminTest(game, copied = false) {
-        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/players/1").status)
     }
 
     @Test

@@ -143,6 +143,24 @@ class SqliteGameDataTest {
         assertEquals(emptyList(), player.bank)
     }
 
+    @Test
+    fun `reads every held item in every inventory and bank, a noted item as the item itself`() {
+        assertEquals(
+            listOf(
+                HoldingRecord(1, Place.INVENTORY, 0, 1),
+                HoldingRecord(1, Place.INVENTORY, 4, 1),
+                HoldingRecord(1, Place.INVENTORY, 10, 1250),
+                HoldingRecord(1, Place.INVENTORY, 156, 1),
+                HoldingRecord(1, Place.BANK, 10, 50000),
+                // The 120 logs are banked as a note.
+                HoldingRecord(1, Place.BANK, 14, 120),
+                HoldingRecord(1, Place.BANK, 373, 1),
+                HoldingRecord(3, Place.INVENTORY, 20, 1),
+            ),
+            gameData.allHeldItems().sortedWith(compareBy({ it.playerId }, { it.place }, { it.itemId })),
+        )
+    }
+
     private fun sql(statement: String) {
         DriverManager.getConnection("jdbc:sqlite:$file").use { it.createStatement().executeUpdate(statement) }
     }

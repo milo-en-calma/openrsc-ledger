@@ -74,11 +74,6 @@ class HistoryGainsTest {
     }
 
     @Test
-    fun `waits for the first copy`() = adminTest(game, copied = false, history = history) {
-        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/history/gains?from=2026-01-01T00:00:00Z").status)
-    }
-
-    @Test
     fun `with nothing recorded there's no start and no gains`() = adminTest(game) {
         assertEquals(
             """{"from":"2026-01-01T00:00:00Z","to":"2026-01-02T00:00:00Z","recordedSince":null,"gains":[]}""",

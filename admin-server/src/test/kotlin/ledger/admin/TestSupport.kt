@@ -20,6 +20,7 @@ import ledger.core.game.PlayerSummary
 import ledger.core.history.HistoryReader
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.test.fail
 import kotlin.time.Instant
 
 /** A game with no players, for tests that don't read game data. */
@@ -61,3 +62,51 @@ fun JsonElement.strings(key: String): List<String> = jsonArray.map { it[key].jso
 
 /** Each object's [key] in this JSON array, as a whole number. */
 fun JsonElement.ints(key: String): List<Int> = jsonArray.map { it[key].jsonPrimitive.int }
+
+/** A GET route from the committed spec: its [path], a [url] to call it by, and the status codes the spec says it answers. */
+data class SpecRoute(val path: String, val url: String, val statuses: Set<String>)
+
+/**
+ * A value for each parameter a route may take, chosen so each route answers with data
+ * from the test database: a player and an item it has, and a period in 2026.
+ */
+private val sampleValues = mapOf(
+    "id" to "1",
+    "itemId" to "10",
+    "board" to "overall",
+    "search" to "o",
+    "staff" to "true",
+    "from" to "2026-01-01T00:00:00Z",
+    "to" to "2026-01-02T00:00:00Z",
+    "player" to "1",
+    "skill" to "woodcut",
+)
+
+/**
+ * Every GET route in the committed `openapi.json`, each with every parameter given its
+ * sample value. A route with a parameter missing from the sample values fails the test
+ * rather than being skipped, so a test over every route covers a new one as soon as it is in the spec.
+ */
+fun specGetRoutes(): List<SpecRoute> {
+    val spec = Json.parseToJsonElement(Files.readString(Path.of("openapi.json"))).jsonObject
+    return spec.getValue("paths").jsonObject.mapNotNull { (path, operations) ->
+        val get = operations.jsonObject["get"]?.jsonObject ?: return@mapNotNull null
+        val parameters = get["parameters"]?.jsonArray.orEmpty().map { it.jsonObject.getValue("name").jsonPrimitive.content }
+        val statuses = get["responses"]?.jsonObject?.keys.orEmpty()
+        SpecRoute(path, sampleUrl(path, parameters), statuses)
+    }
+}
+
+private fun sampleUrl(path: String, parameters: List<String>): String {
+    var url = path
+    val query = mutableListOf<String>()
+    for (name in parameters) {
+        val value = sampleValues[name] ?: fail("No sample value for $name in $path; add one to sampleValues in TestSupport.kt")
+        if ("{$name}" in url) {
+            url = url.replace("{$name}", value)
+        } else {
+            query += "$name=$value"
+        }
+    }
+    return if (query.isEmpty()) url else "$url?${query.joinToString("&")}"
+}

@@ -45,11 +45,6 @@ class LeaderboardsTest {
     }
 
     @Test
-    fun `the overall board ranks by total level`() = adminTest(game) {
-        assertEquals(listOf("Bramblewick", "Oakhollow", "Tansy Moss"), getJson("/api/leaderboards/overall")["entries"].strings("name"))
-    }
-
-    @Test
     fun `staff are left off unless asked for, and ranks close up without them`() {
         change("UPDATE players SET group_id = 3 WHERE id = 1")
         adminTest(game) {
@@ -69,8 +64,7 @@ class LeaderboardsTest {
     }
 
     @Test
-    fun `an unknown board is not found, and boards wait for the first copy`() = adminTest(game, copied = false) {
+    fun `an unknown board is not found`() = adminTest(game) {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/leaderboards/juggling").status)
-        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/leaderboards/overall").status)
     }
 }

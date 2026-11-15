@@ -46,10 +46,4 @@ class EconomyTest {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/items/999999/holders").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/api/items/coins/holders").status)
     }
-
-    @Test
-    fun `waits for the first copy`() = adminTest(game, copied = false) {
-        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/economy").status)
-        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/items/10/holders").status)
-    }
 }
