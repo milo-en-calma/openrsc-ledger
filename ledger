@@ -2,11 +2,14 @@
 # The openrsc-ledger launcher.
 #
 #   ./ledger up [--no-browser]
+#   ./ledger logs
 #
-# Starts the OpenRSC game server, if it isn't already running, and then the ledger, both
+# up starts the OpenRSC game server, if it isn't already running, and then the ledger, both
 # with the world named in ledger.conf, and opens the ledger in a browser. Ctrl-C stops the
 # ledger only: the game server can't be stopped from outside without losing what players
 # did since its last save, so it is left running (see stop_ledger below).
+#
+# logs follows the output of a game server that up started.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")" && pwd)"
@@ -19,9 +22,13 @@ die() { printf 'ledger: %s\n' "$*" >&2; exit 1; }
 usage() {
     cat <<'EOF'
 Usage: ./ledger up [--no-browser]
+       ./ledger logs
 
-Starts the OpenRSC game server (unless it is already running) and the ledger, then opens
-the ledger in a browser. Ctrl-C stops the ledger and leaves the game server running.
+up    Starts the OpenRSC game server (unless it is already running) and the ledger, then
+      opens the ledger in a browser. Ctrl-C stops the ledger and leaves the game server
+      running.
+logs  Follows the output of the game server that up started. Ctrl-C stops following and
+      leaves the game server running.
 
 Settings come from ledger.conf, or the file named by $LEDGER_CONF. The ledger needs Java 25
 or newer: $LEDGER_JAVA_HOME, else $JAVA_HOME, else one found on the system.
@@ -74,6 +81,30 @@ wait_for() {
     done
 }
 
+# Where up keeps the game server's output, and the id of the server's process. Kept here
+# alone, so that a change to where the log lives changes only these two.
+server_log_file() { echo "$data_dir/game-server.log"; }
+server_pid_file() { echo "$data_dir/game-server.pid"; }
+
+# The id of the process accepting connections on port $1, or nothing (needs lsof).
+listener_pid() {
+    command -v lsof >/dev/null 2>&1 || return 0
+    lsof -nP -t -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | head -n 1
+}
+
+# Whether the game server running now is the one up started, so its output is in the log.
+# Ids are reused (after a reboot, say), so a live process with the saved id isn't enough:
+# it must also be a Java process, and still the one accepting the game's connections.
+server_started_here() {
+    local pid command listener
+    pid="$(cat "$(server_pid_file)" 2>/dev/null)" || return 1
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    command="$(ps -o command= -p "$pid" 2>/dev/null)" || return 1
+    [[ "$command" == *java* ]] || return 1
+    listener="$(listener_pid "$game_port")"
+    [ -z "$listener" ] || [ "$listener" = "$pid" ]
+}
+
 ledger_health() { curl -sf "http://127.0.0.1:$ledger_port/api/health" >/dev/null; }
 
 open_browser() {
@@ -89,7 +120,7 @@ server_note() {
     say "To stop it with every player saved, log in as an admin and type ::shutdown (a"
     say "countdown, then everyone is saved and logged out). Stopping its process instead"
     say "loses what players did since the last autosave."
-    if [ -n "$server_log" ]; then say "Its output: $server_log"; fi
+    if [ -n "$server_log" ]; then say "Its output is in $server_log; ./ledger logs follows it."; fi
 }
 
 # On Ctrl-C (or the ledger exiting by itself): stop the ledger, and only the ledger.
@@ -105,21 +136,16 @@ stop_ledger() {
     exit "${1:-0}"
 }
 
-up() {
-    local open_it=1
-    for arg in "$@"; do
-        case "$arg" in
-            --no-browser) open_it=0 ;;
-            *) usage >&2; exit 2 ;;
-        esac
-    done
-
+# Finds Java, builds the ledger (always if $1 is "build", otherwise only if it hasn't been
+# built), and reads the settings this script needs into the globals below.
+load_settings() {
     [ -f "$conf" ] || die "No config at $conf. Copy ledger.conf.example to ledger.conf and set openrsc.dir."
-    local java_home
     java_home="$(find_java)" || die "The ledger needs Java 25 or newer; set LEDGER_JAVA_HOME to one."
 
-    say "Building the ledger (quick when nothing has changed)..."
-    JAVA_HOME="$java_home" "$root/gradlew" -p "$root" -q :admin-server:installDist
+    if [ "${1:-}" = build ] || [ ! -x "$app" ]; then
+        say "Building the ledger (quick when nothing has changed)..."
+        JAVA_HOME="$java_home" "$root/gradlew" -p "$root" -q :admin-server:installDist
+    fi
 
     # ledger.conf is HOCON, so the ledger reads it and prints what this script needs.
     local settings key value
@@ -133,6 +159,17 @@ up() {
             data_dir) data_dir="$value" ;;
         esac
     done <<<"$settings"
+}
+
+up() {
+    local open_it=1
+    for arg in "$@"; do
+        case "$arg" in
+            --no-browser) open_it=0 ;;
+            *) usage >&2; exit 2 ;;
+        esac
+    done
+    load_settings build
 
     # Each process started from here gets a process group of its own, so the Ctrl-C the
     # terminal sends reaches only this script, which then decides what to stop. Without
@@ -145,7 +182,7 @@ up() {
     else
         command -v ant >/dev/null 2>&1 || die "ant isn't installed; OpenRSC's server is started with it."
         mkdir -p "$data_dir"
-        server_log="$data_dir/game-server.log"
+        server_log="$(server_log_file)"
         say "Starting the game server: ant runserver -DconfFile=$world, in $server_dir"
         say "Its output goes to $server_log, shown here until the game is up."
         # nohup: the server also outlives the terminal window closing.
@@ -163,7 +200,10 @@ up() {
         fi
         kill "$tail_pid" 2>/dev/null || true
         tail_pid=""
-        say "The game server is up on port $game_port."
+        # The process now accepting the game's connections is the server itself (ant runs
+        # it in a Java process of its own), so that's the id ./ledger logs checks.
+        listener_pid "$game_port" >"$(server_pid_file)"
+        say "The game server is up on port $game_port. ./ledger logs follows its output."
     fi
 
     say "Starting the ledger on http://127.0.0.1:$ledger_port ..."
@@ -179,11 +219,32 @@ up() {
     stop_ledger 1
 }
 
-server_dir="" world="" game_port="" ledger_port="" data_dir=""
+# Follows the log of the game server up started, from its last lines, until Ctrl-C.
+logs() {
+    [ "$#" -eq 0 ] || { usage >&2; exit 2; }
+    load_settings
+    local log
+    log="$(server_log_file)"
+    [ -f "$log" ] || die "There's no game server log yet ($log). ./ledger up writes one when it starts the server."
+
+    if ! port_open "$game_port"; then
+        say "The game server isn't running. The end of its last output, from $log:"
+        tail -n 40 "$log"
+        exit 0
+    fi
+    if ! server_started_here; then
+        die "The game server running now wasn't started by ./ledger up, so its output isn't in $log."
+    fi
+    say "Following $log. Ctrl-C stops following; the game server keeps running."
+    exec tail -n 40 -f "$log"
+}
+
+java_home="" server_dir="" world="" game_port="" ledger_port="" data_dir=""
 server_log="" tail_pid="" ledger_pid=""
 
 case "${1:-}" in
     up) shift; up "$@" ;;
+    logs) shift; logs "$@" ;;
     -h | --help | help) usage ;;
     *) usage >&2; exit 2 ;;
 esac
