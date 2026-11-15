@@ -73,6 +73,60 @@
         },
         "deprecated" : false
       }
+    },
+    "/api/players/{id}" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "One player's skills and quests.",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "The player's id, from the player list.",
+          "required" : true,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The player, from the latest copy of the server's database.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerPage"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "There's no player with that id.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "The ledger hasn't copied the server's database yet.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
     }
   },
   "components" : {
@@ -136,6 +190,72 @@
           }
         },
         "required" : [ "message" ]
+      },
+      "SkillRow" : {
+        "type" : "object",
+        "properties" : {
+          "skill" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "level" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "fullLevel" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "experience" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "experience", "fullLevel", "level", "name", "skill" ]
+      },
+      "QuestRow" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "complete" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "complete", "id", "stage" ]
+      },
+      "PlayerPage" : {
+        "type" : "object",
+        "properties" : {
+          "player" : {
+            "$ref" : "#/components/schemas/PlayerListItem"
+          },
+          "questPoints" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "skills" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SkillRow"
+            }
+          },
+          "quests" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuestRow"
+            }
+          }
+        },
+        "required" : [ "player", "questPoints", "quests", "skills" ]
       }
     },
     "examples" : { }

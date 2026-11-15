@@ -7,7 +7,9 @@ import io.ktor.server.routing.Route
 import kotlinx.serialization.Serializable
 import ledger.core.copy.CopyRecord
 import ledger.core.game.GameData
+import ledger.core.game.PlayerDetails
 import ledger.core.game.PlayerSummary
+import ledger.core.game.shownExperience
 
 @Serializable
 data class PlayerList(val players: List<PlayerListItem>)
@@ -24,13 +26,46 @@ data class PlayerListItem(
     val online: Boolean,
 )
 
-/** Why the ledger has no data to give yet. */
+@Serializable
+data class PlayerPage(
+    val player: PlayerListItem,
+    val questPoints: Int,
+    /** All 20 skills, in the game's order. */
+    val skills: List<SkillRow>,
+    /** Every quest the player has started, by quest number. */
+    val quests: List<QuestRow>,
+)
+
+@Serializable
+data class SkillRow(
+    /** The skill's key, its column in the server's tables, such as `woodcut`. */
+    val skill: String,
+    /** The name the game shows, such as `Woodcutting`. */
+    val name: String,
+    /** The level now, after boosts and drains. */
+    val level: Int,
+    /** The level before boosts and drains. */
+    val fullLevel: Int,
+    /** Experience as players see it in game. */
+    val experience: Int,
+)
+
+@Serializable
+data class QuestRow(
+    val id: Int,
+    /** How far through the quest the player is; -1 once complete. */
+    val stage: Int,
+    val complete: Boolean,
+)
+
+/** Why the ledger has no data to give. */
 @Serializable
 data class NoData(val message: String)
 
 const val NO_COPY_YET = "The ledger hasn't copied the server's database yet."
+const val NO_SUCH_PLAYER = "There's no player with that id."
 
-/** Answers 503 until the ledger has copied the server's database for the first time. */
+/** The player list and player pages. Both answer 503 until the ledger has copied the server's database for the first time. */
 fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
     get("/api/players", {
         description = "Every player on the server, sorted by name."
@@ -58,7 +93,54 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
         val players = gameData.players(call.request.queryParameters["search"])
         call.respond(PlayerList(players.map { it.toListItem() }))
     }
+
+    get("/api/players/{id}", {
+        description = "One player's skills and quests."
+        request {
+            pathParameter<Int>("id") { description = "The player's id, from the player list." }
+        }
+        response {
+            code(HttpStatusCode.OK) {
+                description = "The player, from the latest copy of the server's database."
+                body<PlayerPage>()
+            }
+            code(HttpStatusCode.NotFound) {
+                description = "There's no player with that id."
+                body<NoData>()
+            }
+            code(HttpStatusCode.ServiceUnavailable) {
+                description = "The ledger hasn't copied the server's database yet."
+                body<NoData>()
+            }
+        }
+    }) {
+        if (lastCopy() == null) {
+            call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
+            return@get
+        }
+        val player = call.parameters["id"]?.toIntOrNull()?.let(gameData::player)
+        if (player == null) {
+            call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_PLAYER))
+            return@get
+        }
+        call.respond(player.toPage())
+    }
 }
+
+private fun PlayerDetails.toPage() = PlayerPage(
+    player = summary.toListItem(),
+    questPoints = questPoints,
+    skills = skills.map { (skill, standing) ->
+        SkillRow(
+            skill = skill.column,
+            name = skill.displayName,
+            level = standing.level,
+            fullLevel = standing.fullLevel,
+            experience = shownExperience(standing.storedExperience),
+        )
+    },
+    quests = quests.map { QuestRow(id = it.questId, stage = it.stage, complete = it.complete) },
+)
 
 private fun PlayerSummary.toListItem() = PlayerListItem(
     id = id,

@@ -12,6 +12,7 @@ import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class PlayersTest {
@@ -56,5 +57,32 @@ class PlayersTest {
         val response = client.get("/api/players")
         assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
         assertEquals("""{"message":"$NO_COPY_YET"}""", response.bodyAsText())
+    }
+
+    @Test
+    fun `a player's page shows experience as players see it, every skill, and quests`() = testApplication {
+        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+        val body = client.get("/api/players/1").bodyAsText()
+        assertTrue(body.startsWith("""{"player":{"id":1,"name":"Bramblewick","""), body)
+        assertTrue(""""questPoints":7""" in body)
+        assertTrue("""{"skill":"hits","name":"Hits","level":10,"fullLevel":10,"experience":1154}""" in body, body)
+        assertEquals(20, Regex(""""skill":"""").findAll(body).count())
+        assertTrue(body.endsWith(""""quests":[{"id":0,"stage":-1,"complete":true},{"id":3,"stage":2,"complete":false}]}"""), body)
+        for (secret in listOf("placeholder", "example.invalid", "192.0.2.")) {
+            assertFalse(secret in body, "The player page contains $secret")
+        }
+    }
+
+    @Test
+    fun `an unknown player is not found`() = testApplication {
+        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/players/99").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/api/players/not-a-number").status)
+    }
+
+    @Test
+    fun `a player's page has no data before the first copy`() = testApplication {
+        application { adminModule(lastCopy = { null }, gameData = SqliteGameData(copy)) }
+        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/players/1").status)
     }
 }

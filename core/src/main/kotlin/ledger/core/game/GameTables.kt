@@ -18,6 +18,7 @@ internal object Players : Table("players") {
     /** Seconds since 1970, set when the player logs in; 0 if they never have. */
     val loginDate = long("login_date").nullable()
     val online = integer("online").nullable()
+    val questPoints = integer("quest_points").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }
@@ -35,3 +36,17 @@ internal object Experience : SkillTable("experience")
 
 /** Each player's full level per skill, before boosts and drains. */
 internal object MaxStats : SkillTable("maxstats")
+
+/** Each player's current level per skill, after boosts and drains. */
+internal object CurStats : SkillTable("curstats")
+
+/** Each player's progress in each quest they've started. */
+internal object Quests : Table("quests") {
+    val playerId = integer("playerID")
+    val questId = integer("id").nullable()
+    /** How far through the quest the player is; [QUEST_COMPLETE] once done. */
+    val stage = integer("stage").nullable()
+}
+
+/** The stage the server gives a finished quest (`Quests.QUEST_STAGE_COMPLETED`). */
+const val QUEST_COMPLETE = -1

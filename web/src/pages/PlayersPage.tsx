@@ -1,4 +1,4 @@
-import { Alert, Badge, Loader, Stack, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { Alert, Anchor, Badge, Loader, Stack, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
@@ -11,6 +11,7 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import { useState } from "react";
+import { Link } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
 
@@ -33,7 +34,15 @@ function lastSeenOrder(player: Player): number {
 }
 
 const columns = column.columns([
-  column.accessor("name", { header: "Name", sortFn: "alphanumeric" }),
+  column.accessor("name", {
+    header: "Name",
+    sortFn: "alphanumeric",
+    cell: ({ row }) => (
+      <Anchor component={Link} to={`/players/${row.original.id}`}>
+        {row.original.name}
+      </Anchor>
+    ),
+  }),
   column.accessor("combatLevel", { header: "Combat", sortFn: "basic", sortDescFirst: true }),
   column.accessor("totalLevel", { header: "Total level", sortFn: "basic", sortDescFirst: true }),
   column.accessor(lastSeenOrder, {

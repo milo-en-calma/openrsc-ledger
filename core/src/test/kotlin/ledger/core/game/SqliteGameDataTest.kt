@@ -6,6 +6,7 @@ import java.nio.file.Path
 import java.sql.DriverManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Instant
 
@@ -65,6 +66,42 @@ class SqliteGameDataTest {
         DriverManager.getConnection("jdbc:sqlite:$next").use { it.createStatement().executeUpdate("DELETE FROM players WHERE id = 3") }
         Files.move(next, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
         assertEquals(2, gameData.players().size)
+    }
+
+    @Test
+    fun `reads one player's skills and quests`() {
+        sql("UPDATE experience SET woodcut = 49800 WHERE playerID = 1")
+        sql("UPDATE maxstats SET woodcut = 30 WHERE playerID = 1")
+        sql("UPDATE curstats SET woodcut = 33 WHERE playerID = 1")
+
+        val player = assertNotNull(gameData.player(1))
+        assertEquals("Bramblewick", player.summary.name)
+        assertEquals(7, player.questPoints)
+        assertEquals(Skill.entries.toSet(), player.skills.keys)
+        assertEquals(SkillStanding(level = 33, fullLevel = 30, storedExperience = 49800), player.skills[Skill.WOODCUT])
+        assertEquals(SkillStanding(level = 10, fullLevel = 10, storedExperience = 4616), player.skills[Skill.HITS])
+        assertEquals(listOf(QuestProgress(0, -1), QuestProgress(3, 2)), player.quests)
+        assertEquals(listOf(true, false), player.quests.map { it.complete })
+    }
+
+    @Test
+    fun `a player with no quests has none`() {
+        assertEquals(emptyList(), assertNotNull(gameData.player(2)).quests)
+    }
+
+    @Test
+    fun `there is no player with an unknown id`() {
+        assertNull(gameData.player(99))
+    }
+
+    @Test
+    fun `experience shown is a quarter of what's stored, rounded down`() {
+        // A new player's Hits: 4616 stored, 1154 in game, exactly level 10.
+        assertEquals(1154, shownExperience(4616))
+        assertEquals(83, shownExperience(335))
+        assertEquals(0, shownExperience(3))
+        // The client reads the stored number as unsigned.
+        assertEquals(0x3fffffff, shownExperience(-1))
     }
 
     private fun sql(statement: String) {

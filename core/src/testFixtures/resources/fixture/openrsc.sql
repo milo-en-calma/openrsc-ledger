@@ -169,3 +169,10 @@ VALUES (1, 'Bramblewick', 'bramblewick@example.invalid', 'placeholder-hash-1', '
 INSERT INTO `curstats` (`playerID`) VALUES (1), (2), (3);
 INSERT INTO `maxstats` (`playerID`) VALUES (1), (2), (3);
 INSERT INTO `experience` (`playerID`) VALUES (1), (2), (3);
+
+-- Quest progress: Bramblewick finished quest 0 and is part way through quest 3;
+-- Oakhollow finished quest 2. A stage of -1 means finished.
+INSERT INTO `quests` (`playerID`, `id`, `stage`)
+VALUES (1, 3, 2),
+       (1, 0, -1),
+       (3, 2, -1);

@@ -13,8 +13,9 @@ else; it never writes to it, and it never changes the game, the server or any pl
 
 > **Status:** early. One command starts the game server and the ledger, which keeps a
 > fresh copy of the server's database and records how every player's skills change. The first screen lists every player, with their
-> combat level, total level and last login, sortable and searchable by name; the header
-> shows how fresh the data is.
+> combat level, total level and last login, sortable and searchable by name; each
+> player's page shows their 20 skills and their quests. The header shows how fresh the data
+> is.
 
 ## Requirements
 
@@ -94,6 +95,12 @@ is away for a week writes nothing. It compares with what it has recorded, not wi
 previous copy, so changes made while the ledger was stopped are caught at its next copy.
 Experience is kept exactly as the server stores it. History can't be recovered later, so
 keep the file: it's the only record of the past.
+
+**Experience is shown as players see it.** The server stores four times the experience
+shown in game, and the game client divides what it is sent by 4, rounding down; the ledger
+does the same. (Hits is the odd one out for new accounts: OpenRSC starts them at level 10
+with 1,000 experience, below the 1,154 that level 10 otherwise needs, and the ledger shows
+that as it is.)
 
 **"Last login" is as close as it gets to "last seen".** The server records when a player
 logs in and whether they are online, but not when they log out.

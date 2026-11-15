@@ -5,6 +5,7 @@ import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -48,6 +49,37 @@ class SqliteGameData(file: Path) : GameData {
                     },
                 )
             }
+    }
+
+    override fun player(id: Int): PlayerDetails? = transaction(database) {
+        val row = Players
+            .join(Experience, JoinType.INNER, Players.id, Experience.playerId)
+            .join(MaxStats, JoinType.INNER, Players.id, MaxStats.playerId)
+            .join(CurStats, JoinType.INNER, Players.id, CurStats.playerId)
+            .selectAll()
+            .where { Players.id eq id }
+            .singleOrNull() ?: return@transaction null
+
+        val quests = Quests.selectAll()
+            .where { Quests.playerId eq id }
+            .mapNotNull { quest ->
+                val questId = quest[Quests.questId] ?: return@mapNotNull null
+                QuestProgress(questId = questId, stage = quest[Quests.stage] ?: 0)
+            }
+            .sortedBy { it.questId }
+
+        PlayerDetails(
+            summary = row.toPlayerSummary(),
+            questPoints = row[Players.questPoints] ?: 0,
+            skills = Skill.entries.associateWith { skill ->
+                SkillStanding(
+                    level = row[CurStats.skill.getValue(skill)],
+                    fullLevel = row[MaxStats.skill.getValue(skill)],
+                    storedExperience = row[Experience.skill.getValue(skill)],
+                )
+            },
+            quests = quests,
+        )
     }
 
     private fun ResultRow.toPlayerSummary() = PlayerSummary(
