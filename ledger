@@ -84,21 +84,9 @@ wait_for() {
 # Where up keeps what ant prints when it starts the game server.
 server_log_file() { echo "$data_dir/game-server.log"; }
 
-# Ant's output, filtered for game-server.log: every line until the server's own logging
-# begins (the first "[java] <date> <time> " line), then only Ant's own lines: those without
-# "[java]", such as BUILD FAILED, and "[java] Java Result: <code>", the server's exit code,
-# which Ant prints under the server's prefix. What the server prints from that point on is
-# also in its log files, so it isn't kept twice. The filter reads to the end either way, so
-# the server never writes into a closed pipe.
-ant_filter='
-    !logging && /^ *\[java\] [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] / {
-        logging = 1
-        print "ledger: the server has begun its own logging, in " default_log " and " world_log "; only Ant lines are kept here from now on."
-        fflush()
-    }
-    logging && /^ *\[java\] / && !/^ *\[java\] Java Result: / { next }
-    { print; fflush() }
-'
+# Ant's output, filtered for game-server.log: only what the server's own logs can't have.
+# How it decides is in the file itself.
+ant_filter="$root/scripts/ant-filter.awk"
 
 ledger_health() { curl -sf "http://127.0.0.1:$ledger_port/api/health" >/dev/null; }
 
@@ -196,7 +184,7 @@ up() {
         # the server's console output would have nowhere to go. $! is the filter's, which
         # ends when the server does.
         (cd "$server_dir" && exec nohup ant runserver -DconfFile="$world") 2>&1 \
-            | nohup awk -v default_log="$default_log" -v world_log="$world_log" "$ant_filter" \
+            | nohup awk -v default_log="$default_log" -v world_log="$world_log" -f "$ant_filter" \
                 >>"$server_log" 2>&1 &
         local server_pid=$!
         if ! wait_for 600 "$server_pid" port_open "$game_port"; then
