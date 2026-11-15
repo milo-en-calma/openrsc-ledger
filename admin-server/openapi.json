@@ -14,7 +14,7 @@
     "/api/health" : {
       "get" : {
         "tags" : [ ],
-        "description" : "Whether the ledger is running.",
+        "description" : "Whether the ledger is running, and how fresh its data is.",
         "parameters" : [ ],
         "responses" : {
           "200" : {
@@ -40,6 +40,9 @@
         "properties" : {
           "status" : {
             "type" : "string"
+          },
+          "dataCopiedAt" : {
+            "type" : [ "null", "string" ]
           }
         },
         "required" : [ "status" ]

@@ -11,8 +11,8 @@ carries, are planned as a separate build of the same code.
 **It never changes anything.** The ledger reads the game server's database and nothing
 else; it never writes to it, and it never changes the game, the server or any player.
 
-> **Status:** early. This is the skeleton: the build, the server and the frontend, with
-> one health check and no game data yet.
+> **Status:** early. The ledger finds the server's database and keeps a fresh copy of
+> it; the home page shows how fresh it is. There are no game-data screens yet.
 
 ## Requirements
 
@@ -22,7 +22,7 @@ else; it never writes to it, and it never changes the game, the server or any pl
 ## Getting started
 
 ```sh
-cp ledger.conf.example ledger.conf     # then edit it; every setting is explained there
+cp ledger.conf.example ledger.conf     # then set openrsc.dir; every setting is explained there
 ./gradlew :admin-server:installDist    # builds the server and the frontend together
 admin-server/build/install/ledger-admin/bin/ledger-admin
 ```
@@ -31,7 +31,30 @@ Then open <http://127.0.0.1:8080> (or whichever `port` you set).
 
 The app looks for its config in the first command-line argument, else in the
 `LEDGER_CONF` environment variable, else in `ledger.conf` in the working directory.
-`ledger.conf` is ignored by git; keep your own settings there.
+`ledger.conf` is ignored by git; keep your own settings there. It is
+[HOCON](https://github.com/lightbend/config/blob/main/HOCON.md), and only `openrsc.dir`,
+the OpenRSC checkout, is required.
+
+## How it reads the game's data
+
+**It finds the database the way the server does.** OpenRSC keeps each world's data in a
+SQLite file, `server/inc/sqlite/<db_name>.db`. The ledger reads `db_name` from the same
+config files the server reads, in the same order: `server/connections.conf`, then
+`server/local.conf` if it exists, otherwise the config of the world the server is launched
+with (the `openrsc.world` setting). MySQL servers aren't supported yet.
+
+**It reads a copy, never the live file.** The server's database uses SQLite's `delete`
+journal mode, in which anything reading the file keeps the server from saving until the
+read ends. So the ledger copies the database with SQLite's backup function, a few pages at
+a time, which holds the server up for milliseconds at most, and every page reads the
+copy. Each copy is written to a temporary file, checked, and renamed into place, so
+nothing ever reads a half-written copy.
+
+**It copies when the server saves.** Every 15 seconds it checks the database's
+modification time, and copies when the file has changed and the last copy is at least a
+minute old (both are settings). The copy can never be fresher than the server's last
+save, and nothing is copied while nothing happens. The copy lives in `data-dir`, which git
+ignores; it holds everything the game database holds, so keep it private.
 
 ## Development
 
@@ -68,7 +91,7 @@ The running server also serves the spec at `/api/openapi.json`.
 
 | Folder | What's in it |
 |---|---|
-| `core/` | Kotlin code shared by every build of the app: settings, and later reading the game's data |
+| `core/` | Kotlin code shared by every build of the app: settings, finding and copying the game's database. Its `src/testFixtures` builds a test database of invented players |
 | `admin-server/` | The admin console's server ([Ktor](https://ktor.io)), serving the API and the built frontend |
 | `web/` | The frontend: React and TypeScript, built with Vite, using Mantine, TanStack Query and React Router |
 

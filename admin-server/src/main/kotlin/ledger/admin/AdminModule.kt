@@ -12,12 +12,16 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import ledger.admin.routes.healthRoutes
+import ledger.core.copy.CopyRecord
 
 /** The path the API's OpenAPI spec is served at; the committed `openapi.json` is a copy of it. */
 const val OPENAPI_PATH = "/api/openapi.json"
 
-/** Everything the admin console serves: the API, its spec and the built frontend. */
-fun Application.adminModule() {
+/**
+ * Everything the admin console serves: the API, its spec and the built frontend.
+ * [lastCopy] gives the newest copy of the server's database, or null before the first.
+ */
+fun Application.adminModule(lastCopy: () -> CopyRecord?) {
     install(ContentNegotiation) { json() }
     install(OpenApi) {
         info {
@@ -39,7 +43,7 @@ fun Application.adminModule() {
 
     routing {
         route(OPENAPI_PATH) { openApi() }
-        healthRoutes()
+        healthRoutes(lastCopy)
 
         // The built frontend, bundled under web/ in the jar. Any path that isn't a file
         // gets index.html, so the frontend's own routes survive a page reload.

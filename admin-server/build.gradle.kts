@@ -11,6 +11,8 @@ kotlin {
 application {
     mainClass = "ledger.admin.MainKt"
     applicationName = "ledger-admin"
+    // sqlite-jdbc loads a native library, which Java 25 allows only when asked.
+    applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
 // The frontend built by :web, served by Ktor from the classpath under web/.
@@ -31,6 +33,7 @@ dependencies {
     implementation(libs.logback.classic)
     webDist(project(":web", "webDist"))
 
+    testImplementation(testFixtures(project(":core")))
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)
 }
@@ -71,6 +74,7 @@ tasks.named<JavaExec>("run") {
 
 tasks.test {
     useJUnitPlatform()
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
     // `./gradlew :admin-server:test -PupdateOpenApi` rewrites openapi.json instead of checking it.
     systemProperty("ledger.updateOpenApi", providers.gradleProperty("updateOpenApi").isPresent)
 }

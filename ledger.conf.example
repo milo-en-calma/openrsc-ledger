@@ -1,5 +1,33 @@
 # openrsc-ledger settings. Copy this file to ledger.conf (which git ignores) and edit it.
-# Format: one `key = value` per line; lines starting with # are comments.
+#
+# The format is HOCON (https://github.com/lightbend/config/blob/main/HOCON.md): `key = value`,
+# with `#` comments, `{ }` blocks, and durations such as 15s or 2m. Only openrsc.dir is
+# required; everything else shown here is the default. Relative paths are resolved
+# against the folder this file is in.
 
 # The port the admin console listens on. It only ever listens on 127.0.0.1.
 port = 8080
+
+# Where the ledger keeps its own files, such as its copy of the server's database.
+data-dir = data
+
+openrsc {
+  # The OpenRSC checkout: the folder that holds server/. Required.
+  dir = /path/to/openrsc
+
+  # The world config the server is launched with, without ".conf" (preservation, uranium...).
+  # It names the game database. Note that the server reads server/local.conf instead
+  # whenever that file exists, whichever world it was launched with, and so does the
+  # ledger; this setting only matters when there is no local.conf.
+  world = default
+}
+
+# The ledger never reads the server's live database, which would hold up the server's
+# saves; it reads a copy, refreshed when the live file changes.
+copy {
+  # How often to check whether the server has saved.
+  check-every = 15s
+
+  # The least time between two copies, however often the server saves.
+  at-most-every = 60s
+}

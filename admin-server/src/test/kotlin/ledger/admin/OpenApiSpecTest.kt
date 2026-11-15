@@ -18,7 +18,7 @@ class OpenApiSpecTest {
 
     @Test
     fun `committed spec matches the routes`() = testApplication {
-        application { adminModule() }
+        application { adminModule(lastCopy = { null }) }
         startApplication()
         val generated = client.get(OPENAPI_PATH).bodyAsText().trimEnd() + "\n"
 

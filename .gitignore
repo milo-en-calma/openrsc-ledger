@@ -1,6 +1,9 @@
 # Local settings; copy ledger.conf.example to start one.
 ledger.conf
 
+# The ledger's own files (data-dir), including its copy of the game database.
+/data/
+
 # Gradle
 .gradle/
 .kotlin/
