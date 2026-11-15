@@ -55,35 +55,37 @@ export function ItemPage() {
       {holders.length === 0 ? (
         <Text c="dimmed">Nobody holds any.</Text>
       ) : (
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Player</Table.Th>
-              <Table.Th ta="right">Total</Table.Th>
-              <Table.Th ta="right">In inventory</Table.Th>
-              <Table.Th ta="right">In bank</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {holders.map((holder) => (
-              <Table.Tr key={holder.playerId}>
-                <Table.Td>
-                  <Anchor component={Link} to={`/players/${holder.playerId}`}>
-                    {holder.name}
-                  </Anchor>
-                  {holder.staff && (
-                    <Badge size="xs" variant="light" color="gray" ml="xs">
-                      Staff
-                    </Badge>
-                  )}
-                </Table.Td>
-                <Table.Td ta="right">{holder.held.total.toLocaleString()}</Table.Td>
-                <Table.Td ta="right">{holder.held.inInventories.toLocaleString()}</Table.Td>
-                <Table.Td ta="right">{holder.held.inBanks.toLocaleString()}</Table.Td>
+        <Table.ScrollContainer minWidth={340} type="native">
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Player</Table.Th>
+                <Table.Th ta="right">Total</Table.Th>
+                <Table.Th ta="right">In inventory</Table.Th>
+                <Table.Th ta="right">In bank</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {holders.map((holder) => (
+                <Table.Tr key={holder.playerId}>
+                  <Table.Td>
+                    <Anchor component={Link} to={`/players/${holder.playerId}`}>
+                      {holder.name}
+                    </Anchor>
+                    {holder.staff && (
+                      <Badge size="xs" variant="light" color="gray" ml="xs">
+                        Staff
+                      </Badge>
+                    )}
+                  </Table.Td>
+                  <Table.Td ta="right">{holder.held.total.toLocaleString()}</Table.Td>
+                  <Table.Td ta="right">{holder.held.inInventories.toLocaleString()}</Table.Td>
+                  <Table.Td ta="right">{holder.held.inBanks.toLocaleString()}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       )}
       <Text c="dimmed" size="sm">
         Noted items count as the item.

@@ -123,33 +123,35 @@ export function EconomyPage() {
         maw={320}
         aria-label="Search items by name"
       />
-      <Table striped highlightOnHover>
-        <Table.Thead>
-          {table.getHeaderGroups().map((group) => (
-            <Table.Tr key={group.id}>
-              {group.headers.map((header) => (
-                <Table.Th key={header.id} ta={header.column.id === "name" ? undefined : "right"}>
-                  <UnstyledButton onClick={header.column.getToggleSortingHandler()} fw={700}>
-                    <table.FlexRender header={header} />
-                    {sortMark(header.column.getIsSorted())}
-                  </UnstyledButton>
-                </Table.Th>
-              ))}
-            </Table.Tr>
-          ))}
-        </Table.Thead>
-        <Table.Tbody>
-          {table.getRowModel().rows.map((row) => (
-            <Table.Tr key={row.id}>
-              {row.getAllCells().map((cell) => (
-                <Table.Td key={cell.id} ta={cell.column.id === "name" ? undefined : "right"}>
-                  <table.FlexRender cell={cell} />
-                </Table.Td>
-              ))}
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+      <Table.ScrollContainer minWidth={520} type="native">
+        <Table striped highlightOnHover>
+          <Table.Thead>
+            {table.getHeaderGroups().map((group) => (
+              <Table.Tr key={group.id}>
+                {group.headers.map((header) => (
+                  <Table.Th key={header.id} ta={header.column.id === "name" ? undefined : "right"}>
+                    <UnstyledButton onClick={header.column.getToggleSortingHandler()} fw={700}>
+                      <table.FlexRender header={header} />
+                      {sortMark(header.column.getIsSorted())}
+                    </UnstyledButton>
+                  </Table.Th>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Thead>
+          <Table.Tbody>
+            {table.getRowModel().rows.map((row) => (
+              <Table.Tr key={row.id}>
+                {row.getAllCells().map((cell) => (
+                  <Table.Td key={cell.id} ta={cell.column.id === "name" ? undefined : "right"}>
+                    <table.FlexRender cell={cell} />
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
     </Stack>
   );
 }

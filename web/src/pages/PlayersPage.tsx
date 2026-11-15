@@ -52,7 +52,7 @@ const columns = column.columns([
     sortDescFirst: true,
     cell: ({ row }) =>
       row.original.online ? (
-        <Badge color="green">Online now</Badge>
+        <Badge color="green">Online</Badge>
       ) : row.original.lastLogin ? (
         new Date(row.original.lastLogin).toLocaleString()
       ) : (
@@ -109,33 +109,35 @@ export function PlayersPage() {
           <Text c="dimmed" size="sm">
             {players.data.length === 1 ? "1 player" : `${players.data.length} players`}
           </Text>
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              {table.getHeaderGroups().map((group) => (
-                <Table.Tr key={group.id}>
-                  {group.headers.map((header) => (
-                    <Table.Th key={header.id}>
-                      <UnstyledButton onClick={header.column.getToggleSortingHandler()} fw={700}>
-                        <table.FlexRender header={header} />
-                        {sortMark(header.column.getIsSorted())}
-                      </UnstyledButton>
-                    </Table.Th>
-                  ))}
-                </Table.Tr>
-              ))}
-            </Table.Thead>
-            <Table.Tbody>
-              {table.getRowModel().rows.map((row) => (
-                <Table.Tr key={row.id}>
-                  {row.getAllCells().map((cell) => (
-                    <Table.Td key={cell.id}>
-                      <table.FlexRender cell={cell} />
-                    </Table.Td>
-                  ))}
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+          <Table.ScrollContainer minWidth={340} type="native">
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                {table.getHeaderGroups().map((group) => (
+                  <Table.Tr key={group.id}>
+                    {group.headers.map((header) => (
+                      <Table.Th key={header.id}>
+                        <UnstyledButton onClick={header.column.getToggleSortingHandler()} fw={700}>
+                          <table.FlexRender header={header} />
+                          {sortMark(header.column.getIsSorted())}
+                        </UnstyledButton>
+                      </Table.Th>
+                    ))}
+                  </Table.Tr>
+                ))}
+              </Table.Thead>
+              <Table.Tbody>
+                {table.getRowModel().rows.map((row) => (
+                  <Table.Tr key={row.id}>
+                    {row.getAllCells().map((cell) => (
+                      <Table.Td key={cell.id}>
+                        <table.FlexRender cell={cell} />
+                      </Table.Td>
+                    ))}
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         </>
       )}
     </Stack>

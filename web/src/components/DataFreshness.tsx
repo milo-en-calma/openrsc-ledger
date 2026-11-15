@@ -1,9 +1,9 @@
-import { Badge, Text } from "@mantine/core";
+import { Badge, type MantineSize, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 
-/** How fresh the ledger's data is: when it last copied the server's database. */
-export function DataFreshness() {
+/** How fresh the ledger's data is: when it last copied the server's database, in text of [size]. */
+export function DataFreshness({ size = "sm" }: { size?: MantineSize }) {
   const health = useQuery({
     queryKey: ["health"],
     queryFn: async () => {
@@ -24,7 +24,7 @@ export function DataFreshness() {
   }
   const copiedAt = health.data.dataCopiedAt;
   return (
-    <Text size="sm" c="dimmed">
+    <Text size={size} c="dimmed" ta="right">
       {copiedAt
         ? `Data as of ${new Date(copiedAt).toLocaleString()}`
         : "Waiting for the first copy of the server's database"}

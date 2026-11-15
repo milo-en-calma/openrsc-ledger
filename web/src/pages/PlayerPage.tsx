@@ -42,7 +42,7 @@ export function PlayerPage() {
       <BackToPlayers />
       <Group align="baseline">
         <Title order={2}>{player.name}</Title>
-        {player.online && <Badge color="green">Online now</Badge>}
+        {player.online && <Badge color="green">Online</Badge>}
       </Group>
       <Text c="dimmed">
         Combat level {player.combatLevel} · Total level {player.totalLevel} · {questPoints} quest points
@@ -52,26 +52,28 @@ export function PlayerPage() {
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
         <Stack gap="xs">
           <Title order={3}>Skills</Title>
-          <Table striped>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Skill</Table.Th>
-                <Table.Th ta="right">Level</Table.Th>
-                <Table.Th ta="right">Experience</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {skills.map((skill) => (
-                <Table.Tr key={skill.skill}>
-                  <Table.Td>{skill.name}</Table.Td>
-                  <Table.Td ta="right">
-                    <Level skill={skill} />
-                  </Table.Td>
-                  <Table.Td ta="right">{skill.experience.toLocaleString()}</Table.Td>
+          <Table.ScrollContainer minWidth={260} type="native">
+            <Table striped>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Skill</Table.Th>
+                  <Table.Th ta="right">Level</Table.Th>
+                  <Table.Th ta="right">Experience</Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {skills.map((skill) => (
+                  <Table.Tr key={skill.skill}>
+                    <Table.Td>{skill.name}</Table.Td>
+                    <Table.Td ta="right">
+                      <Level skill={skill} />
+                    </Table.Td>
+                    <Table.Td ta="right">{skill.experience.toLocaleString()}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         </Stack>
 
         <Stack gap="xs">
@@ -79,24 +81,26 @@ export function PlayerPage() {
           {quests.length === 0 ? (
             <Text c="dimmed">No quests started.</Text>
           ) : (
-            <Table striped>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Quest</Table.Th>
-                  <Table.Th>Progress</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {quests.map((quest) => (
-                  <Table.Tr key={quest.id}>
-                    <Table.Td>{quest.name ?? `Quest ${quest.id}`}</Table.Td>
-                    <Table.Td>
-                      {quest.complete ? <Badge color="green">Complete</Badge> : `Stage ${quest.stage}`}
-                    </Table.Td>
+            <Table.ScrollContainer minWidth={260} type="native">
+              <Table striped>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Quest</Table.Th>
+                    <Table.Th>Progress</Table.Th>
                   </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
+                </Table.Thead>
+                <Table.Tbody>
+                  {quests.map((quest) => (
+                    <Table.Tr key={quest.id}>
+                      <Table.Td>{quest.name ?? `Quest ${quest.id}`}</Table.Td>
+                      <Table.Td>
+                        {quest.complete ? <Badge color="green">Complete</Badge> : `Stage ${quest.stage}`}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
           )}
         </Stack>
       </SimpleGrid>
@@ -110,7 +114,33 @@ export function PlayerPage() {
   );
 }
 
-/** A titled list of items with their amounts. Noted items are marked, and worn ones too with [markWorn]. */
+/** Items of one kind in one list: the same item, noted or not, worn or not, across however many slots. */
+type ItemGroup = { item: Item; amount: number; slots: number };
+
+/**
+ * Gathers [items] into one row per kind, in the order each kind first appears, adding up
+ * the amounts. The game keeps each unstackable item in a slot of its own, so 22 logs would
+ * otherwise be 22 rows.
+ */
+function groupItems(items: Item[]): ItemGroup[] {
+  const groups = new Map<string, ItemGroup>();
+  for (const item of items) {
+    const key = `${item.itemId}/${item.noted}/${item.worn}`;
+    const group = groups.get(key);
+    if (group) {
+      group.amount += item.amount;
+      group.slots += 1;
+    } else {
+      groups.set(key, { item, amount: item.amount, slots: 1 });
+    }
+  }
+  return [...groups.values()];
+}
+
+/**
+ * A titled list of items with their amounts, one row per kind of item. Noted items are
+ * marked, and worn ones too with [markWorn]; a kind held in several slots says how many.
+ */
 function ItemList({ title, items, empty, markWorn = false }: { title: string; items: Item[]; empty: string; markWorn?: boolean }) {
   return (
     <Stack gap="xs">
@@ -118,36 +148,43 @@ function ItemList({ title, items, empty, markWorn = false }: { title: string; it
       {items.length === 0 ? (
         <Text c="dimmed">{empty}</Text>
       ) : (
-        <Table striped>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Item</Table.Th>
-              <Table.Th ta="right">Amount</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {items.map((item) => (
-              <Table.Tr key={item.slot}>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    {item.name ?? `Item ${item.itemId}`}
-                    {item.noted && (
-                      <Badge size="xs" variant="light">
-                        noted
-                      </Badge>
-                    )}
-                    {markWorn && item.worn && (
-                      <Badge size="xs" variant="light" color="grape">
-                        worn
-                      </Badge>
-                    )}
-                  </Group>
-                </Table.Td>
-                <Table.Td ta="right">{item.amount.toLocaleString()}</Table.Td>
+        <Table.ScrollContainer minWidth={260} type="native">
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Item</Table.Th>
+                <Table.Th ta="right">Amount</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {groupItems(items).map(({ item, amount, slots }) => (
+                <Table.Tr key={item.slot}>
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap">
+                      {item.name ?? `Item ${item.itemId}`}
+                      {item.noted && (
+                        <Badge size="xs" variant="light">
+                          noted
+                        </Badge>
+                      )}
+                      {markWorn && item.worn && (
+                        <Badge size="xs" variant="light" color="grape">
+                          worn
+                        </Badge>
+                      )}
+                      {slots > 1 && (
+                        <Text span size="sm" c="dimmed">
+                          ({slots} slots)
+                        </Text>
+                      )}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td ta="right">{amount.toLocaleString()}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       )}
     </Stack>
   );
