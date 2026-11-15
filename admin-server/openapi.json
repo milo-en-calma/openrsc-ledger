@@ -297,6 +297,90 @@
         },
         "deprecated" : false
       }
+    },
+    "/api/history/gains" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "How much experience each player gained in each skill over a period, from the ledger's recorded history. A gain runs from the newest value recorded at or before `from` to the newest at or before `to`; a player first recorded inside the period counts from that first value, not from zero.",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "The period's start, an ISO-8601 time such as 2026-01-01T00:00:00Z.",
+          "required" : false,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "The period's end, an ISO-8601 time. Now, if left out.",
+          "required" : false,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "player",
+          "in" : "query",
+          "description" : "Only this player's gains, by id.",
+          "required" : false,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "skill",
+          "in" : "query",
+          "description" : "Only gains in this skill, by key, such as `woodcut`.",
+          "required" : false,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The gains, most experience first. Empty if nothing changed.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GainsReport"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The period or the skill couldn't be read.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "The ledger hasn't copied the server's database yet.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
     }
   },
   "components" : {
@@ -635,6 +719,62 @@
           }
         },
         "required" : [ "held", "holders", "itemId" ]
+      },
+      "SkillGainRow" : {
+        "type" : "object",
+        "properties" : {
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : [ "null", "string" ]
+          },
+          "skill" : {
+            "type" : "string"
+          },
+          "skillName" : {
+            "type" : "string"
+          },
+          "experienceGained" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "levelsGained" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "experience" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "level" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "experience", "experienceGained", "level", "levelsGained", "playerId", "skill", "skillName" ]
+      },
+      "GainsReport" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "recordedSince" : {
+            "type" : [ "null", "string" ]
+          },
+          "gains" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SkillGainRow"
+            }
+          }
+        },
+        "required" : [ "from", "gains", "to" ]
       }
     },
     "examples" : { }

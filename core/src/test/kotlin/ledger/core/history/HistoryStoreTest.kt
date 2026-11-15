@@ -69,6 +69,59 @@ class HistoryStoreTest {
         assertEquals(0, reopened.record(at + 1.minutes, gameData.allSkills()))
     }
 
+    /** One invented player whose skills are all level 1 with no experience, except those given (stored values). */
+    private fun player(id: Int, vararg values: Pair<Skill, SkillValue>) =
+        PlayerSkills(id, Skill.entries.associateWith { SkillValue(0, 1) } + values)
+
+    @Test
+    fun `nothing recorded has no start and no changes`() {
+        assertEquals(null, history.recordedSince())
+        assertEquals(emptyList(), history.changes(at, at + 60.minutes))
+    }
+
+    @Test
+    fun `a change over a period runs from the newest value before it to the newest within it`() {
+        history.record(at, listOf(player(1, Skill.WOODCUT to SkillValue(4000, 10))))
+        history.record(at + 10.minutes, listOf(player(1, Skill.WOODCUT to SkillValue(8000, 16))))
+        history.record(at + 20.minutes, listOf(player(1, Skill.WOODCUT to SkillValue(9000, 17))))
+        history.record(at + 30.minutes, listOf(player(1, Skill.WOODCUT to SkillValue(12000, 20))))
+
+        val change = history.changes(at + 15.minutes, at + 25.minutes).single()
+        assertEquals(SkillChange(1, Skill.WOODCUT, start = SkillValue(8000, 16), end = SkillValue(9000, 17)), change)
+        // As players see it: 9000 / 4 - 8000 / 4.
+        assertEquals(250, change.experienceGained)
+        assertEquals(1, change.levelsGained)
+        assertEquals(at, history.recordedSince())
+    }
+
+    @Test
+    fun `a period ending on a change includes it, and one starting on it doesn't`() {
+        history.record(at, listOf(player(1)))
+        history.record(at + 10.minutes, listOf(player(1, Skill.MINING to SkillValue(400, 2))))
+        assertEquals(400, history.changes(at, at + 10.minutes).single().end.experience)
+        assertEquals(emptyList(), history.changes(at + 10.minutes, at + 20.minutes))
+    }
+
+    @Test
+    fun `a player first recorded inside the period counts from that first value, not from zero`() {
+        history.record(at, listOf(player(1)))
+        // Recording of player 2 begins at +10 with experience they already had.
+        history.record(at + 10.minutes, listOf(player(1), player(2, Skill.FISHING to SkillValue(20000, 30))))
+        history.record(at + 20.minutes, listOf(player(1), player(2, Skill.FISHING to SkillValue(20400, 30))))
+
+        assertEquals(
+            listOf(SkillChange(2, Skill.FISHING, start = SkillValue(20000, 30), end = SkillValue(20400, 30))),
+            history.changes(at, at + 30.minutes),
+        )
+    }
+
+    @Test
+    fun `skills that didn't change in the period are left out`() {
+        history.record(at, listOf(player(1, Skill.COOKING to SkillValue(400, 2))))
+        history.record(at + 10.minutes, listOf(player(1, Skill.COOKING to SkillValue(800, 3))))
+        assertEquals(emptyList(), history.changes(at + 20.minutes, at + 30.minutes))
+    }
+
     private fun sql(statement: String) {
         DriverManager.getConnection("jdbc:sqlite:$game").use { it.createStatement().executeUpdate(statement) }
     }

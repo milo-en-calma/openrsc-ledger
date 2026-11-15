@@ -3,11 +3,16 @@ package ledger.core.history
 import ledger.core.game.PlayerSkills
 import ledger.core.game.Skill
 import ledger.core.game.SkillValue
+import org.jetbrains.exposed.v1.core.Expression
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.max
+import org.jetbrains.exposed.v1.core.min
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.batchInsert
@@ -44,7 +49,7 @@ internal object SkillHistory : Table("skill_history") {
  * a SQLite database of its own. The server keeps only the present, so this is the only
  * place the past survives. Nothing here ever writes to the server's database.
  */
-class HistoryStore(file: Path) {
+class HistoryStore(file: Path) : HistoryReader {
     private val database: Database
 
     init {
@@ -88,12 +93,38 @@ class HistoryStore(file: Path) {
             .map { Instant.fromEpochMilliseconds(it[SkillHistory.recordedAt]) to SkillValue(it[SkillHistory.experience], it[SkillHistory.level]) }
     }
 
-    private fun newestValues(): Map<Pair<Int, Skill>, SkillValue> {
-        // In SQLite, a query grouping with MAX() takes the other columns from the row
-        // holding the maximum, so this is each player's and skill's newest row.
-        val newestAt = SkillHistory.recordedAt.max()
-        return SkillHistory.select(SkillHistory.playerId, SkillHistory.skill, SkillHistory.experience, SkillHistory.level, newestAt)
-            .groupBy(SkillHistory.playerId, SkillHistory.skill)
+    override fun recordedSince(): Instant? = transaction(database) {
+        val oldest = SkillHistory.recordedAt.min()
+        SkillHistory.select(oldest).single()[oldest]?.let { Instant.fromEpochMilliseconds(it) }
+    }
+
+    override fun changes(from: Instant, to: Instant): List<SkillChange> = transaction(database) {
+        val fromMillis = from.toEpochMilliseconds()
+        val toMillis = to.toEpochMilliseconds()
+        val atStart = newestValues { SkillHistory.recordedAt lessEq fromMillis }
+        val atEnd = newestValues { SkillHistory.recordedAt lessEq toMillis }
+        val firstInPeriod = groupedValues(SkillHistory.recordedAt.min()) {
+            (SkillHistory.recordedAt greater fromMillis) and (SkillHistory.recordedAt lessEq toMillis)
+        }
+        atEnd.mapNotNull { (key, end) ->
+            val start = atStart[key] ?: firstInPeriod[key] ?: return@mapNotNull null
+            if (start == end) { return@mapNotNull null }
+            SkillChange(playerId = key.first, skill = key.second, start = start, end = end)
+        }
+    }
+
+    /** Each player's and skill's newest value among the rows matching [where], or among all rows. */
+    private fun newestValues(where: (() -> Op<Boolean>)? = null) = groupedValues(SkillHistory.recordedAt.max(), where)
+
+    /**
+     * Each player's and skill's value from the row whose time is picked by [pick], the
+     * MAX() or MIN() of `recorded_at`. In SQLite, a query grouping with MAX() or MIN()
+     * takes the other columns from the row holding that maximum or minimum.
+     */
+    private fun groupedValues(pick: Expression<Long?>, where: (() -> Op<Boolean>)? = null): Map<Pair<Int, Skill>, SkillValue> {
+        val query = SkillHistory.select(SkillHistory.playerId, SkillHistory.skill, SkillHistory.experience, SkillHistory.level, pick)
+        if (where != null) { query.where(where) }
+        return query.groupBy(SkillHistory.playerId, SkillHistory.skill)
             .associate { row ->
                 (row[SkillHistory.playerId] to skillsByColumn.getValue(row[SkillHistory.skill])) to
                     SkillValue(row[SkillHistory.experience], row[SkillHistory.level])

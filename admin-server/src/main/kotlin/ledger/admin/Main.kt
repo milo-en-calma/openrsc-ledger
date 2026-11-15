@@ -54,7 +54,7 @@ fun main(args: Array<String>) {
 
     embeddedServer(Netty, host = HOST, port = config.port) {
         launch(Dispatchers.IO) { copyLoop.run() }
-        adminModule(lastCopy = { copyLoop.lastCopy }, gameData = gameData)
+        adminModule(lastCopy = { copyLoop.lastCopy }, gameData = gameData, history = history)
     }.start(wait = true)
 }
 

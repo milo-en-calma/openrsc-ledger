@@ -13,11 +13,13 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import ledger.admin.routes.economyRoutes
 import ledger.admin.routes.healthRoutes
+import ledger.admin.routes.historyRoutes
 import ledger.admin.routes.leaderboardRoutes
 import ledger.admin.routes.playerRoutes
 import ledger.core.copy.CopyRecord
 import ledger.core.game.GameData
 import ledger.core.gamedata.GameNames
+import ledger.core.history.HistoryReader
 
 /** The path the API's OpenAPI spec is served at; the committed `openapi.json` is a copy of it. */
 const val OPENAPI_PATH = "/api/openapi.json"
@@ -25,9 +27,15 @@ const val OPENAPI_PATH = "/api/openapi.json"
 /**
  * Everything the admin console serves: the API, its spec and the built frontend.
  * [lastCopy] gives the newest copy of the server's database, or null before the first;
- * [gameData] reads that copy, and [names] gives items and quests their names.
+ * [gameData] reads that copy, [names] gives items and quests their names, and [history]
+ * reads the ledger's own record of how skills changed.
  */
-fun Application.adminModule(lastCopy: () -> CopyRecord?, gameData: GameData, names: GameNames = GameNames.bundled()) {
+fun Application.adminModule(
+    lastCopy: () -> CopyRecord?,
+    gameData: GameData,
+    names: GameNames = GameNames.bundled(),
+    history: HistoryReader = HistoryReader.NONE,
+) {
     install(ContentNegotiation) { json() }
     install(OpenApi) {
         info {
@@ -53,6 +61,7 @@ fun Application.adminModule(lastCopy: () -> CopyRecord?, gameData: GameData, nam
         playerRoutes(lastCopy, gameData, names)
         leaderboardRoutes(lastCopy, gameData)
         economyRoutes(lastCopy, gameData, names)
+        historyRoutes(lastCopy, gameData, history)
 
         // The built frontend, bundled under web/ in the jar. Any path that isn't a file
         // gets index.html, so the frontend's own routes survive a page reload.
