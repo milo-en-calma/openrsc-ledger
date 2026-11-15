@@ -1,0 +1,24 @@
+# Local settings; copy ledger.conf.example to start one.
+ledger.conf
+
+# Gradle
+.gradle/
+.kotlin/
+build/
+
+# Frontend
+web/node_modules/
+web/.gradle/
+web/generated/
+
+# Game databases never belong in this repository.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Editors and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store

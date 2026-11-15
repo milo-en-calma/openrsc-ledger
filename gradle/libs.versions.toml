@@ -1,0 +1,25 @@
+[versions]
+kotlin = "2.4.21"
+ktor = "3.6.1"
+ktor-openapi = "5.7.0"
+# The JSON-schema generator ktor-openapi is built with; needed at compile time to choose the kotlinx one.
+schema-kenerator = "2.7.2"
+logback = "1.6.7"
+node-gradle = "7.1.0"
+
+[libraries]
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+ktor-openapi = { module = "io.github.smiley4:ktor-openapi", version.ref = "ktor-openapi" }
+schema-kenerator-core = { module = "io.github.smiley4:schema-kenerator-core", version.ref = "schema-kenerator" }
+schema-kenerator-swagger = { module = "io.github.smiley4:schema-kenerator-swagger", version.ref = "schema-kenerator" }
+logback-classic ={ module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+node-gradle = { id = "com.github.node-gradle.node", version.ref = "node-gradle" }

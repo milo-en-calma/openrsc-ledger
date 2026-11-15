@@ -1,0 +1,51 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "openrsc-ledger admin API",
+    "description" : "Read-only stats for an OpenRSC server.",
+    "version" : "0.1.0"
+  },
+  "externalDocs" : {
+    "url" : "/"
+  },
+  "servers" : [ ],
+  "tags" : [ ],
+  "paths" : {
+    "/api/health" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "Whether the ledger is running.",
+        "parameters" : [ ],
+        "responses" : {
+          "200" : {
+            "description" : "The ledger is running.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "Health" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "status" ]
+      }
+    },
+    "examples" : { }
+  },
+  "webhooks" : { }
+}

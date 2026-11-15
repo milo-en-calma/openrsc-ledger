@@ -1,0 +1,5 @@
+# openrsc-ledger settings. Copy this file to ledger.conf (which git ignores) and edit it.
+# Format: one `key = value` per line; lines starting with # are comments.
+
+# The port the admin console listens on. It only ever listens on 127.0.0.1.
+port = 8080
