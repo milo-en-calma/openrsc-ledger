@@ -12,6 +12,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import ledger.admin.routes.healthRoutes
+import ledger.admin.routes.leaderboardRoutes
 import ledger.admin.routes.playerRoutes
 import ledger.core.copy.CopyRecord
 import ledger.core.game.GameData
@@ -49,6 +50,7 @@ fun Application.adminModule(lastCopy: () -> CopyRecord?, gameData: GameData, nam
         route(OPENAPI_PATH) { openApi() }
         healthRoutes(lastCopy)
         playerRoutes(lastCopy, gameData, names)
+        leaderboardRoutes(lastCopy, gameData)
 
         // The built frontend, bundled under web/ in the jar. Any path that isn't a file
         // gets index.html, so the frontend's own routes survive a page reload.

@@ -1,0 +1,105 @@
+package ledger.admin.routes
+
+import io.github.smiley4.ktoropenapi.get
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.response.respond
+import io.ktor.server.routing.Route
+import kotlinx.serialization.Serializable
+import ledger.core.copy.CopyRecord
+import ledger.core.game.GameData
+import ledger.core.game.Skill
+import ledger.core.rank.Leaderboards
+import ledger.core.rank.Standing
+
+/** The overall board's key; every other board is keyed by its skill's column, such as `woodcut`. */
+const val OVERALL = "overall"
+
+@Serializable
+data class BoardList(val boards: List<Board>)
+
+@Serializable
+data class Board(
+    /** What to ask `/api/leaderboards/{board}` for: `overall`, or a skill's key such as `woodcut`. */
+    val key: String,
+    val name: String,
+)
+
+@Serializable
+data class Leaderboard(val board: Board, val entries: List<LeaderboardEntry>)
+
+@Serializable
+data class LeaderboardEntry(
+    /** Tied players share a rank: 1, 2, 2, 4. */
+    val rank: Int,
+    val playerId: Int,
+    val name: String,
+    /** The skill's full level, or on the overall board the total level. */
+    val level: Int,
+    /** Experience as players see it, in the skill or in all skills together. */
+    val experience: Long,
+)
+
+const val NO_SUCH_BOARD = "There's no leaderboard by that name."
+
+private val boards = listOf(Board(OVERALL, "Overall")) + Skill.entries.map { Board(it.column, it.displayName) }
+
+/** Classic ranks, per skill and overall. Boards answer 503 until the first copy of the server's database. */
+fun Route.leaderboardRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
+    get("/api/leaderboards", {
+        description = "The leaderboards there are: overall, then one per skill."
+        response {
+            code(HttpStatusCode.OK) {
+                description = "The boards."
+                body<BoardList>()
+            }
+        }
+    }) {
+        call.respond(BoardList(boards))
+    }
+
+    get("/api/leaderboards/{board}", {
+        description = "Every player ranked on one board."
+        request {
+            pathParameter<String>("board") { description = "`overall`, or a skill's key such as `woodcut`." }
+        }
+        response {
+            code(HttpStatusCode.OK) {
+                description = "The board, from the latest copy of the server's database."
+                body<Leaderboard>()
+            }
+            code(HttpStatusCode.NotFound) {
+                description = "There's no board by that name."
+                body<NoData>()
+            }
+            code(HttpStatusCode.ServiceUnavailable) {
+                description = "The ledger hasn't copied the server's database yet."
+                body<NoData>()
+            }
+        }
+    }) {
+        val board = boards.firstOrNull { it.key == call.parameters["board"] }
+        if (board == null) {
+            call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_BOARD))
+            return@get
+        }
+        if (lastCopy() == null) {
+            call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
+            return@get
+        }
+        val players = gameData.players()
+        val skills = gameData.allSkills()
+        val standings = when (board.key) {
+            OVERALL -> Leaderboards.overall(players, skills)
+            else -> Leaderboards.skill(Skill.entries.first { it.column == board.key }, players, skills)
+        }
+        call.respond(Leaderboard(board, standings.map { it.toEntry() }))
+    }
+}
+
+private fun Standing.toEntry() = LeaderboardEntry(
+    rank = rank,
+    playerId = player.id,
+    name = player.name,
+    level = level,
+    experience = experience,
+)

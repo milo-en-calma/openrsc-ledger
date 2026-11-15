@@ -127,6 +127,80 @@
         },
         "deprecated" : false
       }
+    },
+    "/api/leaderboards" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "The leaderboards there are: overall, then one per skill.",
+        "parameters" : [ ],
+        "responses" : {
+          "200" : {
+            "description" : "The boards.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BoardList"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
+    },
+    "/api/leaderboards/{board}" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "Every player ranked on one board.",
+        "parameters" : [ {
+          "name" : "board",
+          "in" : "path",
+          "description" : "`overall`, or a skill's key such as `woodcut`.",
+          "required" : true,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The board, from the latest copy of the server's database.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Leaderboard"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "There's no board by that name.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "The ledger hasn't copied the server's database yet.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
     }
   },
   "components" : {
@@ -304,6 +378,70 @@
           }
         },
         "required" : [ "bank", "equipment", "inventory", "player", "questPoints", "quests", "skills" ]
+      },
+      "Board" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key", "name" ]
+      },
+      "BoardList" : {
+        "type" : "object",
+        "properties" : {
+          "boards" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Board"
+            }
+          }
+        },
+        "required" : [ "boards" ]
+      },
+      "LeaderboardEntry" : {
+        "type" : "object",
+        "properties" : {
+          "rank" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "playerId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "level" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "experience" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "experience", "level", "name", "playerId", "rank" ]
+      },
+      "Leaderboard" : {
+        "type" : "object",
+        "properties" : {
+          "board" : {
+            "$ref" : "#/components/schemas/Board"
+          },
+          "entries" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LeaderboardEntry"
+            }
+          }
+        },
+        "required" : [ "board", "entries" ]
       }
     },
     "examples" : { }
