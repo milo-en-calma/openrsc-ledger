@@ -122,6 +122,46 @@ class HistoryStoreTest {
         assertEquals(emptyList(), history.changes(at + 20.minutes, at + 30.minutes))
     }
 
+    @Test
+    fun `each player's and skill's change is read from its own rows`() {
+        val p1 = { woodcut: SkillValue, fishing: SkillValue -> player(1, Skill.WOODCUT to woodcut, Skill.FISHING to fishing) }
+        history.record(at, listOf(p1(SkillValue(4000, 10), SkillValue(100, 1)), player(3)))
+        history.record(at + 10.minutes, listOf(p1(SkillValue(4000, 10), SkillValue(200, 2)), player(3)))
+        history.record(at + 20.minutes, listOf(p1(SkillValue(5000, 11), SkillValue(200, 2)), player(2, Skill.WOODCUT to SkillValue(7000, 14)), player(3)))
+        history.record(at + 30.minutes, listOf(p1(SkillValue(5000, 11), SkillValue(300, 3)), player(2, Skill.WOODCUT to SkillValue(7400, 15)), player(3)))
+        // After the period: none of this may show.
+        history.record(at + 40.minutes, listOf(p1(SkillValue(9999, 20), SkillValue(300, 3)), player(2, Skill.WOODCUT to SkillValue(7400, 15)), player(3, Skill.MINING to SkillValue(400, 2))))
+
+        val changes = history.changes(at + 15.minutes, at + 35.minutes)
+        assertEquals(
+            setOf(
+                SkillChange(1, Skill.WOODCUT, start = SkillValue(4000, 10), end = SkillValue(5000, 11)),
+                SkillChange(1, Skill.FISHING, start = SkillValue(200, 2), end = SkillValue(300, 3)),
+                // Player 2 was first recorded inside the period.
+                SkillChange(2, Skill.WOODCUT, start = SkillValue(7000, 14), end = SkillValue(7400, 15)),
+            ),
+            changes.toSet(),
+        )
+        assertEquals(3, changes.size)
+    }
+
+    @Test
+    fun `a period before recording began has no changes`() {
+        history.record(at, listOf(player(1)))
+        history.record(at + 10.minutes, listOf(player(1, Skill.MINING to SkillValue(400, 2))))
+        assertEquals(emptyList(), history.changes(at - 60.minutes, at - 30.minutes))
+    }
+
+    @Test
+    fun `a period running past the newest recording ends at the newest value`() {
+        history.record(at, listOf(player(1, Skill.WOODCUT to SkillValue(4000, 10))))
+        history.record(at + 10.minutes, listOf(player(1, Skill.WOODCUT to SkillValue(8000, 16))))
+        assertEquals(
+            listOf(SkillChange(1, Skill.WOODCUT, start = SkillValue(4000, 10), end = SkillValue(8000, 16))),
+            history.changes(at + 5.minutes, at + 10_000.minutes),
+        )
+    }
+
     private fun sql(statement: String) {
         DriverManager.getConnection("jdbc:sqlite:$game").use { it.createStatement().executeUpdate(statement) }
     }
