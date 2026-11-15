@@ -34,6 +34,7 @@ dependencies {
     webDist(project(":web", "webDist"))
 
     testImplementation(testFixtures(project(":core")))
+    testImplementation(libs.typesafe.config)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test)
 }

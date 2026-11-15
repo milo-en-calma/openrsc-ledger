@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+# The openrsc-ledger launcher.
+#
+#   ./ledger up [--no-browser]
+#
+# Starts the OpenRSC game server, if it isn't already running, and then the ledger, both
+# with the world named in ledger.conf, and opens the ledger in a browser. Ctrl-C stops the
+# ledger only: the game server can't be stopped from outside without losing what players
+# did since its last save, so it is left running (see stop_ledger below).
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")" && pwd)"
+conf="${LEDGER_CONF:-$root/ledger.conf}"
+app="$root/admin-server/build/install/ledger-admin/bin/ledger-admin"
+
+say() { printf 'ledger: %s\n' "$*"; }
+die() { printf 'ledger: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+    cat <<'EOF'
+Usage: ./ledger up [--no-browser]
+
+Starts the OpenRSC game server (unless it is already running) and the ledger, then opens
+the ledger in a browser. Ctrl-C stops the ledger and leaves the game server running.
+
+Settings come from ledger.conf, or the file named by $LEDGER_CONF. The ledger needs Java 25
+or newer: $LEDGER_JAVA_HOME, else $JAVA_HOME, else one found on the system.
+EOF
+}
+
+# The major version of the Java in the folder $1, such as 25, or nothing.
+java_major() {
+    "$1/bin/java" -version 2>&1 | sed -n 's/.* version "\([0-9][0-9]*\).*/\1/p' | head -n 1
+}
+
+is_java_25() {
+    local major
+    [ -n "$1" ] && [ -x "$1/bin/java" ] || return 1
+    major="$(java_major "$1")"
+    [ -n "$major" ] && [ "$major" -ge 25 ]
+}
+
+# A Java 25 or newer for the ledger. Only the ledger gets it: the game server keeps
+# whichever Java ant finds, as it would without this script.
+find_java() {
+    local candidate
+    for candidate in "${LEDGER_JAVA_HOME:-}" "${JAVA_HOME:-}"; do
+        if is_java_25 "$candidate"; then echo "$candidate"; return 0; fi
+    done
+    if [ -x /usr/libexec/java_home ] && candidate="$(/usr/libexec/java_home -v 25+ 2>/dev/null)"; then
+        echo "$candidate"; return 0
+    fi
+    if command -v java >/dev/null 2>&1; then
+        candidate="$(cd "$(dirname "$(readlink -f "$(command -v java)")")/.." && pwd)"
+        if is_java_25 "$candidate"; then echo "$candidate"; return 0; fi
+    fi
+    return 1
+}
+
+# Whether something on this machine accepts connections on port $1.
+port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+
+# Waits up to $1 seconds for the command after it to succeed, giving up early if the
+# process $2 has exited. Returns 1 on either.
+wait_for() {
+    local seconds="$1" pid="$2"
+    shift 2
+    local waited=0
+    until "$@"; do
+        kill -0 "$pid" 2>/dev/null || return 1
+        [ "$waited" -lt "$seconds" ] || return 1
+        sleep 1
+        waited=$((waited + 1))
+    done
+}
+
+ledger_health() { curl -sf "http://127.0.0.1:$ledger_port/api/health" >/dev/null; }
+
+open_browser() {
+    local url="$1"
+    if command -v open >/dev/null 2>&1; then open "$url"
+    elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1
+    else say "Open $url in a browser."
+    fi
+}
+
+server_note() {
+    say "The game server is still running on port $game_port."
+    say "To stop it with every player saved, log in as an admin and type ::shutdown (a"
+    say "countdown, then everyone is saved and logged out). Stopping its process instead"
+    say "loses what players did since the last autosave."
+    if [ -n "$server_log" ]; then say "Its output: $server_log"; fi
+}
+
+# On Ctrl-C (or the ledger exiting by itself): stop the ledger, and only the ledger.
+stop_ledger() {
+    trap - INT TERM
+    if [ -n "$tail_pid" ]; then kill "$tail_pid" 2>/dev/null || true; fi
+    if [ -n "$ledger_pid" ] && kill -0 "$ledger_pid" 2>/dev/null; then
+        say "Stopping the ledger..."
+        kill -TERM "$ledger_pid" 2>/dev/null || true
+        wait "$ledger_pid" 2>/dev/null || true
+    fi
+    server_note
+    exit "${1:-0}"
+}
+
+up() {
+    local open_it=1
+    for arg in "$@"; do
+        case "$arg" in
+            --no-browser) open_it=0 ;;
+            *) usage >&2; exit 2 ;;
+        esac
+    done
+
+    [ -f "$conf" ] || die "No config at $conf. Copy ledger.conf.example to ledger.conf and set openrsc.dir."
+    local java_home
+    java_home="$(find_java)" || die "The ledger needs Java 25 or newer; set LEDGER_JAVA_HOME to one."
+
+    say "Building the ledger (quick when nothing has changed)..."
+    JAVA_HOME="$java_home" "$root/gradlew" -p "$root" -q :admin-server:installDist
+
+    # ledger.conf is HOCON, so the ledger reads it and prints what this script needs.
+    local settings key value
+    settings="$(JAVA_HOME="$java_home" "$app" --print-launch-settings "$conf")" || exit 1
+    while IFS='=' read -r key value; do
+        case "$key" in
+            server_dir) server_dir="$value" ;;
+            world) world="$value" ;;
+            game_port) game_port="$value" ;;
+            ledger_port) ledger_port="$value" ;;
+            data_dir) data_dir="$value" ;;
+        esac
+    done <<<"$settings"
+
+    # Each process started from here gets a process group of its own, so the Ctrl-C the
+    # terminal sends reaches only this script, which then decides what to stop. Without
+    # this, Ctrl-C would reach the game server too and end it without saving.
+    set -m
+    trap 'stop_ledger 0' INT TERM
+
+    if port_open "$game_port"; then
+        say "The game server is already running on port $game_port; starting only the ledger."
+    else
+        command -v ant >/dev/null 2>&1 || die "ant isn't installed; OpenRSC's server is started with it."
+        mkdir -p "$data_dir"
+        server_log="$data_dir/game-server.log"
+        say "Starting the game server: ant runserver -DconfFile=$world, in $server_dir"
+        say "Its output goes to $server_log, shown here until the game is up."
+        # nohup: the server also outlives the terminal window closing.
+        (cd "$server_dir" && exec nohup ant runserver -DconfFile="$world") >"$server_log" 2>&1 &
+        local server_pid=$!
+        # The log display is started without job control, so bash doesn't announce
+        # "Terminated" when it's stopped; stop_ledger stops it if Ctrl-C comes first.
+        set +m
+        tail -n +1 -f "$server_log" &
+        tail_pid=$!
+        set -m
+        if ! wait_for 600 "$server_pid" port_open "$game_port"; then
+            kill "$tail_pid" 2>/dev/null || true
+            die "The game server didn't open port $game_port; see $server_log"
+        fi
+        kill "$tail_pid" 2>/dev/null || true
+        tail_pid=""
+        say "The game server is up on port $game_port."
+    fi
+
+    say "Starting the ledger on http://127.0.0.1:$ledger_port ..."
+    JAVA_HOME="$java_home" "$app" "$conf" &
+    ledger_pid=$!
+    wait_for 120 "$ledger_pid" ledger_health || stop_ledger 1
+    say "The ledger is up. Ctrl-C stops it and leaves the game server running."
+    if [ "$open_it" = 1 ]; then open_browser "http://127.0.0.1:$ledger_port/"; fi
+
+    # Until Ctrl-C, or the ledger stopping by itself.
+    wait "$ledger_pid" || true
+    say "The ledger has stopped."
+    stop_ledger 1
+}
+
+server_dir="" world="" game_port="" ledger_port="" data_dir=""
+server_log="" tail_pid="" ledger_pid=""
+
+case "${1:-}" in
+    up) shift; up "$@" ;;
+    -h | --help | help) usage ;;
+    *) usage >&2; exit 2 ;;
+esac

@@ -11,23 +11,47 @@ carries, are planned as a separate build of the same code.
 **It never changes anything.** The ledger reads the game server's database and nothing
 else; it never writes to it, and it never changes the game, the server or any player.
 
-> **Status:** early. The ledger finds the server's database and keeps a fresh copy of
-> it; the home page shows how fresh it is. There are no game-data screens yet.
+> **Status:** early. One command starts the game server and the ledger, which keeps a
+> fresh copy of the server's database; the home page shows how fresh it is. There are no
+> game-data screens yet.
 
 ## Requirements
 
 - **Java 25** to build and run. Nothing else: the build downloads its own Node.js for the
   frontend, and Gradle comes with the repository (`./gradlew`).
+- To have the ledger start the game server too, an OpenRSC checkout with its server built,
+  and [Ant](https://ant.apache.org), which OpenRSC starts its server with.
 
 ## Getting started
 
 ```sh
 cp ledger.conf.example ledger.conf     # then set openrsc.dir; every setting is explained there
+./ledger up
+```
+
+`./ledger up` builds the ledger if anything changed, starts the OpenRSC game server if it
+isn't already running, starts the ledger, and opens it in a browser
+(<http://127.0.0.1:8080>, or whichever `port` you set). Add `--no-browser` to skip that.
+
+- **The game server** is started the way OpenRSC's own launcher does,
+  `ant runserver -DconfFile=<openrsc.world>` in its `server/` folder, with whichever Java
+  Ant finds. Its output is shown until the game is up, then goes on in
+  `data/game-server.log`.
+- **The ledger** gets a Java 25: `$LEDGER_JAVA_HOME`, else `$JAVA_HOME`, else one found on
+  the system.
+- **Ctrl-C stops the ledger and leaves the game server running.** The server can't be
+  stopped from outside without losing what players did since its last autosave: it
+  saves players only when shut down from inside the game. To stop it, log in as an admin
+  and type `::shutdown`, which counts down, then saves and logs everyone out. For the same
+  reason the server is started apart from the terminal's Ctrl-C, and it keeps running if
+  the terminal is closed.
+
+To run the ledger on its own, without the launcher:
+
+```sh
 ./gradlew :admin-server:installDist    # builds the server and the frontend together
 admin-server/build/install/ledger-admin/bin/ledger-admin
 ```
-
-Then open <http://127.0.0.1:8080> (or whichever `port` you set).
 
 The app looks for its config in the first command-line argument, else in the
 `LEDGER_CONF` environment variable, else in `ledger.conf` in the working directory.
