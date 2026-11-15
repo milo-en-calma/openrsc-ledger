@@ -201,6 +201,38 @@
         },
         "deprecated" : false
       }
+    },
+    "/api/economy" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "Total coins, and how much of every item is held, across every inventory and bank. Noted items count as the item.",
+        "parameters" : [ ],
+        "responses" : {
+          "200" : {
+            "description" : "The economy, from the latest copy of the server's database.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EconomyReport"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "The ledger hasn't copied the server's database yet.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
     }
   },
   "components" : {
@@ -442,6 +474,59 @@
           }
         },
         "required" : [ "board", "entries" ]
+      },
+      "Holdings" : {
+        "type" : "object",
+        "properties" : {
+          "inInventories" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inBanks" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "inBanks", "inInventories", "total" ]
+      },
+      "ItemHoldings" : {
+        "type" : "object",
+        "properties" : {
+          "itemId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : [ "null", "string" ]
+          },
+          "held" : {
+            "$ref" : "#/components/schemas/Holdings"
+          },
+          "holders" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "held", "holders", "itemId" ]
+      },
+      "EconomyReport" : {
+        "type" : "object",
+        "properties" : {
+          "coins" : {
+            "$ref" : "#/components/schemas/Holdings"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ItemHoldings"
+            }
+          }
+        },
+        "required" : [ "coins", "items" ]
       }
     },
     "examples" : { }

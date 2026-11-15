@@ -17,8 +17,11 @@ interface GameData {
     /** Every player's experience and full level in every skill. */
     fun allSkills(): List<PlayerSkills>
 
-    /** One player's summary, skills and quests, or null if there's no such player. */
+    /** One player's summary, skills, quests and belongings, or null if there's no such player. */
     fun player(id: Int): PlayerDetails?
+
+    /** Every item in every inventory and bank. */
+    fun allHeldItems(): List<HoldingRecord>
 }
 
 /** One player, as the player list shows them. */
@@ -72,3 +75,9 @@ data class HeldItem(
     /** Whether the player is wearing or wielding it. */
     val worn: Boolean,
 )
+
+/** Where an item is held. */
+enum class Place { INVENTORY, BANK }
+
+/** One slot's item, for adding up across the whole world. */
+data class HoldingRecord(val playerId: Int, val place: Place, val itemId: Int, val amount: Int)

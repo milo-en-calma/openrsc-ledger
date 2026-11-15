@@ -9,6 +9,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Path
@@ -82,6 +83,14 @@ class SqliteGameData(file: Path) : GameData {
             inventory = heldItems(InvItems, id),
             bank = heldItems(BankItems, id),
         )
+    }
+
+    override fun allHeldItems(): List<HoldingRecord> = transaction(database) {
+        listOf(InvItems to Place.INVENTORY, BankItems to Place.BANK).flatMap { (table, place) ->
+            table.join(ItemStatuses, JoinType.INNER, table.itemStatusId, ItemStatuses.id)
+                .select(table.playerId, ItemStatuses.catalogId, ItemStatuses.amount)
+                .map { row -> HoldingRecord(row[table.playerId], place, row[ItemStatuses.catalogId], row[ItemStatuses.amount]) }
+        }
     }
 
     /** The items in one player's slots of [table], by slot. Call inside a transaction. */

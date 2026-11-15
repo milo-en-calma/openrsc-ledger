@@ -11,6 +11,7 @@ import io.ktor.server.http.content.staticResources
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
+import ledger.admin.routes.economyRoutes
 import ledger.admin.routes.healthRoutes
 import ledger.admin.routes.leaderboardRoutes
 import ledger.admin.routes.playerRoutes
@@ -51,6 +52,7 @@ fun Application.adminModule(lastCopy: () -> CopyRecord?, gameData: GameData, nam
         healthRoutes(lastCopy)
         playerRoutes(lastCopy, gameData, names)
         leaderboardRoutes(lastCopy, gameData)
+        economyRoutes(lastCopy, gameData, names)
 
         // The built frontend, bundled under web/ in the jar. Any path that isn't a file
         // gets index.html, so the frontend's own routes survive a page reload.

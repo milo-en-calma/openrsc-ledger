@@ -1,6 +1,7 @@
 import { AppShell, Group, Title } from "@mantine/core";
 import { NavLink, Route, Routes } from "react-router";
 import { DataFreshness } from "./components/DataFreshness";
+import { EconomyPage } from "./pages/EconomyPage";
 import { LeaderboardsPage } from "./pages/LeaderboardsPage";
 import { PlayerPage } from "./pages/PlayerPage";
 import { PlayersPage } from "./pages/PlayersPage";
@@ -25,6 +26,9 @@ export function App() {
             <NavLink to="/leaderboards" style={navLinkStyle}>
               Leaderboards
             </NavLink>
+            <NavLink to="/economy" style={navLinkStyle}>
+              Economy
+            </NavLink>
           </Group>
           <DataFreshness />
         </Group>
@@ -35,6 +39,7 @@ export function App() {
           <Route path="/players/:id" element={<PlayerPage />} />
           <Route path="/leaderboards" element={<LeaderboardsPage />} />
           <Route path="/leaderboards/:board" element={<LeaderboardsPage />} />
+          <Route path="/economy" element={<EconomyPage />} />
         </Routes>
       </AppShell.Main>
     </AppShell>
