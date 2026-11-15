@@ -16,7 +16,8 @@ else; it never writes to it, and it never changes the game, the server or any pl
 > combat level, total level and last login, sortable and searchable by name; each
 > player's page shows their 20 skills, their quests, and what they wear, carry and bank,
 > all by name. Leaderboards rank everyone the classic way, per skill and overall; tied
-> players share a rank. The economy screen totals every coin and every item held, across
+> players share a rank, and the server's staff are left off unless "Show staff" is
+> switched on. The economy screen totals every coin and every item held, across
 > all inventories and banks. The header shows how fresh the data
 > is.
 

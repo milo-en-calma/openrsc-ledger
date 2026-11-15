@@ -163,6 +163,16 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "name" : "staff",
+          "in" : "query",
+          "description" : "`true` to rank the server's staff too. They're left out otherwise, and ranks are counted without them.",
+          "required" : false,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -456,9 +466,12 @@
           "experience" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "staff" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "experience", "level", "name", "playerId", "rank" ]
+        "required" : [ "experience", "level", "name", "playerId", "rank", "staff" ]
       },
       "Leaderboard" : {
         "type" : "object",

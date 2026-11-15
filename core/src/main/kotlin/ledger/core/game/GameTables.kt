@@ -19,9 +19,17 @@ internal object Players : Table("players") {
     val loginDate = long("login_date").nullable()
     val online = integer("online").nullable()
     val questPoints = integer("quest_points").nullable()
+    /** The player's rank on the server: below [FIRST_PLAYER_GROUP] is staff. */
+    val groupId = integer("group_id").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }
+
+/**
+ * The server's group for ordinary players (`Group.USER`). Every group below it is staff:
+ * owner, admins, moderators, developers, event and player moderators, and testers.
+ */
+internal const val FIRST_PLAYER_GROUP = 10
 
 /** A table with one column per skill, keyed by player: `experience`, `maxstats` or `curstats`. */
 internal open class SkillTable(name: String) : Table(name) {

@@ -34,6 +34,8 @@ data class PlayerSummary(
     val lastLogin: Instant?,
     /** Whether the server had them marked as logged in at its last save. */
     val online: Boolean,
+    /** Whether they're one of the server's staff, from owner down to tester, rather than an ordinary player. */
+    val staff: Boolean = false,
 )
 
 /** Everything the player page shows about one player. */

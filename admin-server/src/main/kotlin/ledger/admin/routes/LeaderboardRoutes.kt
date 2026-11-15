@@ -37,6 +37,8 @@ data class LeaderboardEntry(
     val level: Int,
     /** Experience as players see it, in the skill or in all skills together. */
     val experience: Long,
+    /** Whether the player is staff; only ever true when the board was asked for with `staff=true`. */
+    val staff: Boolean,
 )
 
 const val NO_SUCH_BOARD = "There's no leaderboard by that name."
@@ -61,6 +63,10 @@ fun Route.leaderboardRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
         description = "Every player ranked on one board."
         request {
             pathParameter<String>("board") { description = "`overall`, or a skill's key such as `woodcut`." }
+            queryParameter<Boolean>("staff") {
+                description = "`true` to rank the server's staff too. They're left out otherwise, and ranks are counted without them."
+                required = false
+            }
         }
         response {
             code(HttpStatusCode.OK) {
@@ -86,7 +92,8 @@ fun Route.leaderboardRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
         }
-        val players = gameData.players()
+        val includeStaff = call.request.queryParameters["staff"] == "true"
+        val players = gameData.players().filter { includeStaff || !it.staff }
         val skills = gameData.allSkills()
         val standings = when (board.key) {
             OVERALL -> Leaderboards.overall(players, skills)
@@ -102,4 +109,5 @@ private fun Standing.toEntry() = LeaderboardEntry(
     name = player.name,
     level = level,
     experience = experience,
+    staff = player.staff,
 )

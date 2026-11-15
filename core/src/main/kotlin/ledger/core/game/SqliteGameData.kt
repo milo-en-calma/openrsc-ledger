@@ -116,6 +116,7 @@ class SqliteGameData(file: Path) : GameData {
         totalLevel = this[Players.skillTotal] ?: 0,
         lastLogin = this[Players.loginDate]?.takeIf { it > 0 }?.let { Instant.fromEpochSeconds(it) },
         online = this[Players.online] == 1,
+        staff = (this[Players.groupId] ?: FIRST_PLAYER_GROUP) < FIRST_PLAYER_GROUP,
     )
 
     private companion object {

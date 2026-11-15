@@ -38,6 +38,16 @@ class SqliteGameDataTest {
     }
 
     @Test
+    fun `players in a group below the ordinary players' are staff`() {
+        sql("UPDATE players SET group_id = 9 WHERE id = 1")
+        sql("UPDATE players SET group_id = 0 WHERE id = 2")
+        assertEquals(
+            mapOf("Bramblewick" to true, "Tansy Moss" to true, "Oakhollow" to false),
+            gameData.players().associate { it.name to it.staff },
+        )
+    }
+
+    @Test
     fun `a player who never logged in has no last login`() {
         sql("UPDATE players SET login_date = 0 WHERE id = 2")
         assertNull(gameData.players().first { it.name == "Tansy Moss" }.lastLogin)
