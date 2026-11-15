@@ -12,6 +12,8 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
     implementation(libs.typesafe.config)
     implementation(libs.sqlite.jdbc)
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.jdbc)
     implementation(libs.slf4j.api)
 
     testFixturesImplementation(libs.sqlite.jdbc)

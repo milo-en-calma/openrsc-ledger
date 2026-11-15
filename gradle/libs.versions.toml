@@ -7,6 +7,7 @@ ktor-openapi = "5.7.0"
 schema-kenerator = "2.7.2"
 typesafe-config = "1.4.10"
 sqlite-jdbc = "3.54.1.0"
+exposed = "1.6.1"
 slf4j = "2.0.17"
 logback = "1.6.7"
 node-gradle = "7.1.0"
@@ -22,6 +23,8 @@ ktor-openapi = { module = "io.github.smiley4:ktor-openapi", version.ref = "ktor-
 schema-kenerator-core = { module = "io.github.smiley4:schema-kenerator-core", version.ref = "schema-kenerator" }
 schema-kenerator-swagger = { module = "io.github.smiley4:schema-kenerator-swagger", version.ref = "schema-kenerator" }
 typesafe-config = { module = "com.typesafe:config", version.ref = "typesafe-config" }
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }

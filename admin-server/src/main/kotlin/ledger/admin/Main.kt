@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import ledger.core.config.LedgerConfig
 import ledger.core.copy.DatabaseCopier
 import ledger.core.copy.DatabaseCopyLoop
+import ledger.core.game.SqliteGameData
 import ledger.core.openrsc.OpenRscServer
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
@@ -46,7 +47,7 @@ fun main(args: Array<String>) {
 
     embeddedServer(Netty, host = HOST, port = config.port) {
         launch(Dispatchers.IO) { copyLoop.run() }
-        adminModule(lastCopy = { copyLoop.lastCopy })
+        adminModule(lastCopy = { copyLoop.lastCopy }, gameData = SqliteGameData(copier.copy))
     }.start(wait = true)
 }
 

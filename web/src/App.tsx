@@ -1,18 +1,20 @@
 import { AppShell, Group, Title } from "@mantine/core";
 import { Route, Routes } from "react-router";
-import { HomePage } from "./pages/HomePage";
+import { DataFreshness } from "./components/DataFreshness";
+import { PlayersPage } from "./pages/PlayersPage";
 
 export function App() {
   return (
     <AppShell header={{ height: 56 }} padding="md">
       <AppShell.Header>
-        <Group h="100%" px="md">
+        <Group h="100%" px="md" justify="space-between">
           <Title order={3}>openrsc-ledger</Title>
+          <DataFreshness />
         </Group>
       </AppShell.Header>
       <AppShell.Main>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<PlayersPage />} />
         </Routes>
       </AppShell.Main>
     </AppShell>

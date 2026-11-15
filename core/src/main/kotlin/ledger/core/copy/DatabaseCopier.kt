@@ -1,14 +1,12 @@
 package ledger.core.copy
 
-import org.sqlite.SQLiteConfig
+import ledger.core.sqlite.openReadOnly
 import org.sqlite.SQLiteConnection
 import org.sqlite.SQLiteErrorCode
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
-import java.sql.Connection
-import java.sql.DriverManager
 
 /**
  * Copies the server's live database to [copy], which is what every page reads.
@@ -55,11 +53,5 @@ class DatabaseCopier(private val live: Path, val copy: Path) {
         const val BUSY_WAIT_MILLIS = 100
         /** ...this many times (three seconds) before giving up until the next check. */
         const val BUSY_RETRIES = 30
-
-        /** Opens [file] so that nothing done through the connection can change it. */
-        fun openReadOnly(file: Path): Connection {
-            val config = SQLiteConfig().apply { setReadOnly(true) }
-            return DriverManager.getConnection("jdbc:sqlite:$file", config.toProperties())
-        }
     }
 }

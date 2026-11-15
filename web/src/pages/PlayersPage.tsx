@@ -1,0 +1,134 @@
+import { Alert, Badge, Loader, Stack, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  createColumnHelper,
+  createSortedRowModel,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_basic,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
+import { useState } from "react";
+import type { components } from "../../generated/openapi";
+import { api } from "../api/client";
+
+type Player = components["schemas"]["PlayerListItem"];
+
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, basic: sortFn_basic },
+});
+
+const column = createColumnHelper<typeof features, Player>();
+
+/** Sorts players online now above everyone, then by when they last logged in. */
+function lastSeenOrder(player: Player): number {
+  if (player.online) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return player.lastLogin ? Date.parse(player.lastLogin) : 0;
+}
+
+const columns = column.columns([
+  column.accessor("name", { header: "Name", sortFn: "alphanumeric" }),
+  column.accessor("combatLevel", { header: "Combat", sortFn: "basic", sortDescFirst: true }),
+  column.accessor("totalLevel", { header: "Total level", sortFn: "basic", sortDescFirst: true }),
+  column.accessor(lastSeenOrder, {
+    id: "lastSeen",
+    header: "Last login",
+    sortFn: "basic",
+    sortDescFirst: true,
+    cell: ({ row }) =>
+      row.original.online ? (
+        <Badge color="green">Online now</Badge>
+      ) : row.original.lastLogin ? (
+        new Date(row.original.lastLogin).toLocaleString()
+      ) : (
+        <Text c="dimmed" span>
+          Never
+        </Text>
+      ),
+  }),
+]);
+
+function sortMark(sorted: false | "asc" | "desc"): string {
+  return sorted === "asc" ? " ▲" : sorted === "desc" ? " ▼" : "";
+}
+
+export function PlayersPage() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebouncedValue(search.trim(), 200);
+
+  const players = useQuery({
+    queryKey: ["players", debouncedSearch],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/players", {
+        params: { query: debouncedSearch ? { search: debouncedSearch } : {} },
+      });
+      if (error || !data) {
+        throw new Error(error?.message ?? "The ledger didn't answer.");
+      }
+      return data.players;
+    },
+    // Keeps the last results on screen while the next search loads.
+    placeholderData: keepPreviousData,
+    refetchInterval: 15_000,
+  });
+
+  const table = useTable({ features, columns, data: players.data ?? [] });
+
+  return (
+    <Stack>
+      <TextInput
+        placeholder="Search by name"
+        value={search}
+        onChange={(event) => setSearch(event.currentTarget.value)}
+        maw={320}
+        aria-label="Search players by name"
+      />
+      {players.isPending ? (
+        <Loader />
+      ) : players.isError ? (
+        <Alert color="red" title="Can't load the players">
+          {players.error.message}
+        </Alert>
+      ) : (
+        <>
+          <Text c="dimmed" size="sm">
+            {players.data.length === 1 ? "1 player" : `${players.data.length} players`}
+          </Text>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              {table.getHeaderGroups().map((group) => (
+                <Table.Tr key={group.id}>
+                  {group.headers.map((header) => (
+                    <Table.Th key={header.id}>
+                      <UnstyledButton onClick={header.column.getToggleSortingHandler()} fw={700}>
+                        <table.FlexRender header={header} />
+                        {sortMark(header.column.getIsSorted())}
+                      </UnstyledButton>
+                    </Table.Th>
+                  ))}
+                </Table.Tr>
+              ))}
+            </Table.Thead>
+            <Table.Tbody>
+              {table.getRowModel().rows.map((row) => (
+                <Table.Tr key={row.id}>
+                  {row.getAllCells().map((cell) => (
+                    <Table.Td key={cell.id}>
+                      <table.FlexRender cell={cell} />
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </>
+      )}
+    </Stack>
+  );
+}

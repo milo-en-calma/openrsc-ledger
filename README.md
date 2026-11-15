@@ -12,8 +12,9 @@ carries, are planned as a separate build of the same code.
 else; it never writes to it, and it never changes the game, the server or any player.
 
 > **Status:** early. One command starts the game server and the ledger, which keeps a
-> fresh copy of the server's database; the home page shows how fresh it is. There are no
-> game-data screens yet.
+> fresh copy of the server's database. The first screen lists every player, with their
+> combat level, total level and last login, sortable and searchable by name; the header
+> shows how fresh the data is.
 
 ## Requirements
 
@@ -80,6 +81,13 @@ minute old (both are settings). The copy can never be fresher than the server's 
 save, and nothing is copied while nothing happens. The copy lives in `data-dir`, which git
 ignores; it holds everything the game database holds, so keep it private.
 
+**It never reads players' secrets.** The server's `players` table also holds each
+player's password hash, salt, email address and IP addresses. The ledger's table
+definitions don't declare those columns at all, so no query it makes can select them.
+
+**"Last login" is as close as it gets to "last seen".** The server records when a player
+logs in and whether they are online, but not when they log out.
+
 ## Development
 
 Run the server and the frontend separately, so frontend changes show up instantly:
@@ -115,9 +123,9 @@ The running server also serves the spec at `/api/openapi.json`.
 
 | Folder | What's in it |
 |---|---|
-| `core/` | Kotlin code shared by every build of the app: settings, finding and copying the game's database. Its `src/testFixtures` builds a test database of invented players |
+| `core/` | Kotlin code shared by every build of the app: settings, finding and copying the game's database, and reading it (with [Exposed](https://github.com/JetBrains/Exposed)). Its `src/testFixtures` builds a test database of invented players |
 | `admin-server/` | The admin console's server ([Ktor](https://ktor.io)), serving the API and the built frontend |
-| `web/` | The frontend: React and TypeScript, built with Vite, using Mantine, TanStack Query and React Router |
+| `web/` | The frontend: React and TypeScript, built with Vite, using Mantine, TanStack Query, TanStack Table and React Router |
 
 ## License
 

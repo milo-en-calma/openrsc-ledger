@@ -31,6 +31,48 @@
         },
         "deprecated" : false
       }
+    },
+    "/api/players" : {
+      "get" : {
+        "tags" : [ ],
+        "description" : "Every player on the server, sorted by name.",
+        "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "description" : "Only players whose name contains this, ignoring case.",
+          "required" : false,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The players, from the latest copy of the server's database.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerList"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "The ledger hasn't copied the server's database yet.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : false
+      }
     }
   },
   "components" : {
@@ -46,6 +88,54 @@
           }
         },
         "required" : [ "status" ]
+      },
+      "PlayerListItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "combatLevel" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalLevel" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "lastLogin" : {
+            "type" : [ "null", "string" ]
+          },
+          "online" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "combatLevel", "id", "name", "online", "totalLevel" ]
+      },
+      "PlayerList" : {
+        "type" : "object",
+        "properties" : {
+          "players" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlayerListItem"
+            }
+          }
+        },
+        "required" : [ "players" ]
+      },
+      "NoData" : {
+        "type" : "object",
+        "properties" : {
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "message" ]
       }
     },
     "examples" : { }
