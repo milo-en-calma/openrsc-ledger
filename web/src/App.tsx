@@ -1,4 +1,4 @@
-import { AppShell, Container, Group, Stack, Title } from "@mantine/core";
+import { AppShell, Box, Container, Group, Stack, Title } from "@mantine/core";
 import { NavLink, Route, Routes } from "react-router";
 import { DataFreshness } from "./components/DataFreshness";
 import { EconomyPage } from "./pages/EconomyPage";
@@ -36,13 +36,18 @@ export function App() {
     // Phones get a two-row header (title and freshness, then the links), since one row doesn't fit.
     <AppShell header={{ height: { base: 84, sm: 56 } }} padding="md">
       <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between" wrap="nowrap" visibleFrom="sm">
-          <Group gap="lg" wrap="nowrap">
-            <Title order={3}>openrsc-ledger</Title>
-            <NavLinks />
-          </Group>
-          <DataFreshness />
-        </Group>
+        {/* Capped like the page below it, so the title and links line up with the content. */}
+        <Box h="100%" px="md" visibleFrom="sm">
+          <Container size={1000} p={0} h="100%">
+            <Group h="100%" justify="space-between" wrap="nowrap">
+              <Group gap="lg" wrap="nowrap">
+                <Title order={3}>openrsc-ledger</Title>
+                <NavLinks />
+              </Group>
+              <DataFreshness />
+            </Group>
+          </Container>
+        </Box>
         <Stack h="100%" px="md" py={8} gap={6} justify="center" hiddenFrom="sm">
           <Group justify="space-between" wrap="nowrap">
             <Title order={4}>openrsc-ledger</Title>
