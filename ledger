@@ -84,6 +84,22 @@ wait_for() {
 # Where up keeps what ant prints when it starts the game server.
 server_log_file() { echo "$data_dir/game-server.log"; }
 
+# Ant's output, filtered for game-server.log: every line until the server's own logging
+# begins (the first "[java] <date> <time> " line), then only Ant's own lines: those without
+# "[java]", such as BUILD FAILED, and "[java] Java Result: <code>", the server's exit code,
+# which Ant prints under the server's prefix. What the server prints from that point on is
+# also in its log files, so it isn't kept twice. The filter reads to the end either way, so
+# the server never writes into a closed pipe.
+ant_filter='
+    !logging && /^ *\[java\] [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] / {
+        logging = 1
+        print "ledger: the server has begun its own logging, in " default_log " and " world_log "; only Ant lines are kept here from now on."
+        fflush()
+    }
+    logging && /^ *\[java\] / && !/^ *\[java\] Java Result: / { next }
+    { print; fflush() }
+'
+
 ledger_health() { curl -sf "http://127.0.0.1:$ledger_port/api/health" >/dev/null; }
 
 open_browser() {
@@ -137,6 +153,7 @@ load_settings() {
             ledger_port) ledger_port="$value" ;;
             data_dir) data_dir="$value" ;;
             world_log) world_log="$value" ;;
+            default_log) default_log="$value" ;;
         esac
     done <<<"$settings"
 }
@@ -164,20 +181,30 @@ up() {
         mkdir -p "$data_dir"
         server_log="$(server_log_file)"
         say "Starting the game server: ant runserver -DconfFile=$world, in $server_dir"
-        say "Its output goes to $server_log, shown here until the game is up."
-        # nohup: the server also outlives the terminal window closing.
-        (cd "$server_dir" && exec nohup ant runserver -DconfFile="$world") >"$server_log" 2>&1 &
-        local server_pid=$!
-        # The log display is started without job control, so bash doesn't announce
-        # "Terminated" when it's stopped; stop_ledger stops it if Ctrl-C comes first.
-        set +m
-        tail -n +1 -f "$server_log" &
+        say "Shown here until the game is up: Ant's output, kept in $server_log, and the"
+        say "server's own logs, $default_log and $world_log."
+        # The display starts before the server, on an emptied file, so it misses nothing.
+        # -n 0: only new lines, not the end of the last run's logs. -F: it waits for a file
+        # that doesn't exist yet and follows the server's logs when it rolls them away at
+        # start. It's disowned, so bash doesn't announce "Terminated" when it's stopped;
+        # stop_ledger stops it if Ctrl-C comes first.
+        : >"$server_log"
+        tail -n 0 -F "$server_log" "$default_log" "$world_log" 2>/dev/null &
         tail_pid=$!
-        set -m
+        disown "$tail_pid"
+        # nohup, for both: they outlive the terminal window closing. If the filter died,
+        # the server's console output would have nowhere to go. $! is the filter's, which
+        # ends when the server does.
+        (cd "$server_dir" && exec nohup ant runserver -DconfFile="$world") 2>&1 \
+            | nohup awk -v default_log="$default_log" -v world_log="$world_log" "$ant_filter" \
+                >>"$server_log" 2>&1 &
+        local server_pid=$!
         if ! wait_for 600 "$server_pid" port_open "$game_port"; then
             kill "$tail_pid" 2>/dev/null || true
-            die "The game server didn't open port $game_port; see $server_log"
+            die "The game server didn't open port $game_port; see $server_log and $default_log"
         fi
+        # tail -F looks at the files about once a second; let it show the last lines.
+        sleep 1
         kill "$tail_pid" 2>/dev/null || true
         tail_pid=""
         say "The game server is up on port $game_port. ./ledger logs follows its log."
@@ -215,7 +242,7 @@ logs() {
     exec tail -n 40 -F "$log"
 }
 
-java_home="" server_dir="" world="" game_port="" ledger_port="" data_dir="" world_log=""
+java_home="" server_dir="" world="" game_port="" ledger_port="" data_dir="" world_log="" default_log=""
 server_log="" tail_pid="" ledger_pid=""
 
 case "${1:-}" in

@@ -42,8 +42,14 @@ isn't already running, starts the ledger, and opens it in a browser
 
 - **The game server** is started the way OpenRSC's own launcher does,
   `ant runserver -DconfFile=<openrsc.world>` in its `server/` folder, with whichever Java
-  Ant finds. Its output is shown until the game is up, then goes on in
-  `data/game-server.log`.
+  Ant finds. Until the game is up, `./ledger up` shows Ant's output and the new lines of
+  the server's own logs, `server/logs/default.log` and the world's log (below).
+  `data/game-server.log`, begun afresh at each start, keeps only what those logs can't
+  have: everything Ant prints before the server's own logging begins (the build, or Java
+  failing to start), and afterwards only Ant's own lines, such as `BUILD FAILED` or
+  `Java Result: <code>` when the server stops. The server's output goes through a small
+  filter that writes that file; it runs as long as the server does and, like the server,
+  outlives the terminal.
 - **`./ledger logs` follows the server's own log**, `server/logs/<world>_<n>.log` (the
   world's `server_name` lower-cased with spaces turned to underscores, and its
   `world_number`, as the server names it), from its last lines, until Ctrl-C, which stops

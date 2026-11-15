@@ -32,6 +32,12 @@ class OpenRscServer private constructor(
         "${worldLogName(settings["server_name"] ?: DEFAULT_SERVER_NAME)}_${settings["world_number"]?.toIntOrNull() ?: DEFAULT_WORLD_NUMBER}.log",
     )
 
+    /**
+     * The file the server logs everything else to, `server/logs/default.log`: what it logs
+     * before a world has started, and lines from threads that don't belong to a world.
+     */
+    val defaultLog: Path = serverDir.resolve("logs").resolve("default.log")
+
     /** The live SQLite database: `server/inc/sqlite/<db_name>.db`. */
     fun database(): Path {
         require(isSqlite(settings["db_type"])) {
