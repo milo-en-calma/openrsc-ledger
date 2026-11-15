@@ -60,6 +60,18 @@ class OpenRscServerTest {
     }
 
     @Test
+    fun `names the world's log as the server does, defaulting to runescape_1`() {
+        Fixtures.openRscCheckout(
+            dir,
+            mapOf("local.conf" to "\tserver_name: Fenmoor Vale  # shown at login\n\tworld_number: 3\n"),
+            dbName = "preservation",
+        )
+        assertEquals(dir.resolve("server/logs/fenmoor_vale_3.log"), server("local").worldLog)
+        Files.delete(dir.resolve("server/local.conf"))
+        assertEquals(dir.resolve("server/logs/runescape_1.log"), server("local").worldLog)
+    }
+
+    @Test
     fun `refuses a MySQL server`() {
         Fixtures.openRscCheckout(dir, emptyMap(), dbName = "preservation", connections = "db_type: mysql\n")
         assertFailsWith<IllegalArgumentException> { server("default").database() }

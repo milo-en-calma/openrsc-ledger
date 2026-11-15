@@ -43,12 +43,13 @@ isn't already running, starts the ledger, and opens it in a browser
 - **The game server** is started the way OpenRSC's own launcher does,
   `ant runserver -DconfFile=<openrsc.world>` in its `server/` folder, with whichever Java
   Ant finds. Its output is shown until the game is up, then goes on in
-  `data/game-server.log`. **`./ledger logs` follows that log**, from its last lines, until
-  Ctrl-C, which stops only the following. It refuses when the server running now wasn't
-  started by `./ledger up`, since that server's output isn't in the file: `up` saves the id
-  of the Java process accepting the game's connections, and `logs` checks that the same
-  process still is, so an id reused by another process doesn't count. When no server is
-  running, it shows the end of the last one's output.
+  `data/game-server.log`.
+- **`./ledger logs` follows the server's own log**, `server/logs/<world>_<n>.log` (the
+  world's `server_name` lower-cased with spaces turned to underscores, and its
+  `world_number`, as the server names it), from its last lines, until Ctrl-C, which stops
+  only the following. The server writes that file however it was started, so this works
+  for a server started by hand too, and it keeps following when the server rolls the file
+  away and starts a new one. When no server is running, it shows the end of the last log.
 - **The ledger** gets a Java 25: `$LEDGER_JAVA_HOME`, else `$JAVA_HOME`, else one found on
   the system.
 - **Ctrl-C stops the ledger and leaves the game server running.** The server can't be

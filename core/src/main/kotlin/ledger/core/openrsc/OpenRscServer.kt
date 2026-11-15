@@ -22,6 +22,16 @@ class OpenRscServer private constructor(
     /** The port the game listens on for players (`server_port`). */
     val gamePort: Int = settings["server_port"]?.toIntOrNull() ?: DEFAULT_GAME_PORT
 
+    /**
+     * The file the server logs its world to, `server/logs/<name>_<number>.log`: `server_name`
+     * lower-cased and trimmed, its spaces turned to underscores, and `world_number`, as the
+     * server's `LogUtil` names it. The server rolls it away to a dated `.log.gz` and starts
+     * it afresh, so it is always the newest.
+     */
+    val worldLog: Path = serverDir.resolve("logs").resolve(
+        "${worldLogName(settings["server_name"] ?: DEFAULT_SERVER_NAME)}_${settings["world_number"]?.toIntOrNull() ?: DEFAULT_WORLD_NUMBER}.log",
+    )
+
     /** The live SQLite database: `server/inc/sqlite/<db_name>.db`. */
     fun database(): Path {
         require(isSqlite(settings["db_type"])) {
@@ -36,6 +46,11 @@ class OpenRscServer private constructor(
     companion object {
         const val DEFAULT_DB_NAME = "preservation"
         const val DEFAULT_GAME_PORT = 43594
+        const val DEFAULT_SERVER_NAME = "Runescape"
+        const val DEFAULT_WORLD_NUMBER = 1
+
+        /** A world's name as the server's log files spell it (`LogUtil.formatWorldName`). */
+        internal fun worldLogName(serverName: String): String = serverName.lowercase().trim().replace(" ", "_")
 
         fun load(openRsc: OpenRscConfig): OpenRscServer {
             val serverDir = openRsc.dir.resolve("server")

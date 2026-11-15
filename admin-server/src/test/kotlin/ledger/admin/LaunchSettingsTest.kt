@@ -24,6 +24,7 @@ class LaunchSettingsTest {
             game_port=43597
             ledger_port=9123
             data_dir=$dir/data
+            world_log=$dir/openrsc/server/logs/runescape_1.log
 
             """.trimIndent(),
             launchSettings(config, OpenRscServer.load(config.openRsc)),

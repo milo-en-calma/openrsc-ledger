@@ -14,4 +14,5 @@ fun launchSettings(config: LedgerConfig, server: OpenRscServer): String = listOf
     "game_port" to server.gamePort,
     "ledger_port" to config.port,
     "data_dir" to config.dataDir,
+    "world_log" to server.worldLog,
 ).joinToString("") { (key, value) -> "$key=$value\n" }
