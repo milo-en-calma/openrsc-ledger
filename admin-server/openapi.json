@@ -222,6 +222,9 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "name" : {
+            "type" : [ "null", "string" ]
+          },
           "stage" : {
             "type" : "integer",
             "format" : "int32"

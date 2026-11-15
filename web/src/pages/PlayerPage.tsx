@@ -88,8 +88,7 @@ export function PlayerPage() {
               <Table.Tbody>
                 {quests.map((quest) => (
                   <Table.Tr key={quest.id}>
-                    {/* Quest names come from the game data in a later version. */}
-                    <Table.Td>Quest {quest.id}</Table.Td>
+                    <Table.Td>{quest.name ?? `Quest ${quest.id}`}</Table.Td>
                     <Table.Td>
                       {quest.complete ? <Badge color="green">Complete</Badge> : `Stage ${quest.stage}`}
                     </Table.Td>

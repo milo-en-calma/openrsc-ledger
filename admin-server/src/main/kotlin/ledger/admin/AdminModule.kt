@@ -15,6 +15,7 @@ import ledger.admin.routes.healthRoutes
 import ledger.admin.routes.playerRoutes
 import ledger.core.copy.CopyRecord
 import ledger.core.game.GameData
+import ledger.core.gamedata.GameNames
 
 /** The path the API's OpenAPI spec is served at; the committed `openapi.json` is a copy of it. */
 const val OPENAPI_PATH = "/api/openapi.json"
@@ -22,9 +23,9 @@ const val OPENAPI_PATH = "/api/openapi.json"
 /**
  * Everything the admin console serves: the API, its spec and the built frontend.
  * [lastCopy] gives the newest copy of the server's database, or null before the first;
- * [gameData] reads that copy.
+ * [gameData] reads that copy, and [names] gives items and quests their names.
  */
-fun Application.adminModule(lastCopy: () -> CopyRecord?, gameData: GameData) {
+fun Application.adminModule(lastCopy: () -> CopyRecord?, gameData: GameData, names: GameNames = GameNames.bundled()) {
     install(ContentNegotiation) { json() }
     install(OpenApi) {
         info {
@@ -47,7 +48,7 @@ fun Application.adminModule(lastCopy: () -> CopyRecord?, gameData: GameData) {
     routing {
         route(OPENAPI_PATH) { openApi() }
         healthRoutes(lastCopy)
-        playerRoutes(lastCopy, gameData)
+        playerRoutes(lastCopy, gameData, names)
 
         // The built frontend, bundled under web/ in the jar. Any path that isn't a file
         // gets index.html, so the frontend's own routes survive a page reload.

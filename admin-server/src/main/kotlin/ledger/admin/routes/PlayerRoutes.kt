@@ -10,6 +10,7 @@ import ledger.core.game.GameData
 import ledger.core.game.PlayerDetails
 import ledger.core.game.PlayerSummary
 import ledger.core.game.shownExperience
+import ledger.core.gamedata.GameNames
 
 @Serializable
 data class PlayerList(val players: List<PlayerListItem>)
@@ -53,6 +54,8 @@ data class SkillRow(
 @Serializable
 data class QuestRow(
     val id: Int,
+    /** The quest's name, or null if the ledger's game data doesn't know the number. */
+    val name: String?,
     /** How far through the quest the player is; -1 once complete. */
     val stage: Int,
     val complete: Boolean,
@@ -66,7 +69,7 @@ const val NO_COPY_YET = "The ledger hasn't copied the server's database yet."
 const val NO_SUCH_PLAYER = "There's no player with that id."
 
 /** The player list and player pages. Both answer 503 until the ledger has copied the server's database for the first time. */
-fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
+fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: GameNames) {
     get("/api/players", {
         description = "Every player on the server, sorted by name."
         request {
@@ -123,11 +126,11 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
             call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_PLAYER))
             return@get
         }
-        call.respond(player.toPage())
+        call.respond(player.toPage(names))
     }
 }
 
-private fun PlayerDetails.toPage() = PlayerPage(
+private fun PlayerDetails.toPage(names: GameNames) = PlayerPage(
     player = summary.toListItem(),
     questPoints = questPoints,
     skills = skills.map { (skill, standing) ->
@@ -139,7 +142,7 @@ private fun PlayerDetails.toPage() = PlayerPage(
             experience = shownExperience(standing.storedExperience),
         )
     },
-    quests = quests.map { QuestRow(id = it.questId, stage = it.stage, complete = it.complete) },
+    quests = quests.map { QuestRow(id = it.questId, name = names.quest(it.questId), stage = it.stage, complete = it.complete) },
 )
 
 private fun PlayerSummary.toListItem() = PlayerListItem(

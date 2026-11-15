@@ -14,7 +14,7 @@ else; it never writes to it, and it never changes the game, the server or any pl
 > **Status:** early. One command starts the game server and the ledger, which keeps a
 > fresh copy of the server's database and records how every player's skills change. The first screen lists every player, with their
 > combat level, total level and last login, sortable and searchable by name; each
-> player's page shows their 20 skills and their quests. The header shows how fresh the data
+> player's page shows their 20 skills and their quests by name. The header shows how fresh the data
 > is.
 
 ## Requirements
@@ -105,7 +105,21 @@ that as it is.)
 **"Last login" is as close as it gets to "last seen".** The server records when a player
 logs in and whether they are online, but not when they log out.
 
-## Development
+## Game data
+
+The database stores items and quests by number. Their names come from OpenRSC's own game
+data, extracted into `core/src/main/resources/gamedata/` and committed, so the ledger runs
+without the server's source: item names and whether each stacks from the server's item
+definitions (`ItemDefs.json`, then `ItemDefsCustom.json`), and quest names from its quest
+plugins. To extract them again, say after updating OpenRSC:
+
+```sh
+./gradlew :core:extractGameData -PopenrscDir=/path/to/openrsc
+```
+
+Worlds set to an older era of the game (`based_config_data` below 85) rename some items;
+the ledger uses the current names.
+
 
 Run the server and the frontend separately, so frontend changes show up instantly:
 

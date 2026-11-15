@@ -67,7 +67,7 @@ class PlayersTest {
         assertTrue(""""questPoints":7""" in body)
         assertTrue("""{"skill":"hits","name":"Hits","level":10,"fullLevel":10,"experience":1154}""" in body, body)
         assertEquals(20, Regex(""""skill":"""").findAll(body).count())
-        assertTrue(body.endsWith(""""quests":[{"id":0,"stage":-1,"complete":true},{"id":3,"stage":2,"complete":false}]}"""), body)
+        assertTrue(body.endsWith(""""quests":[{"id":0,"name":"Black knight's fortress","stage":-1,"complete":true},{"id":3,"name":"Doric's quest","stage":2,"complete":false}]}"""), body)
         for (secret in listOf("placeholder", "example.invalid", "192.0.2.")) {
             assertFalse(secret in body, "The player page contains $secret")
         }

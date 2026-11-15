@@ -1,0 +1,1595 @@
+# id	name	stackable (1 or 0). Extracted from OpenRSC's item definitions by
+# ./gradlew :core:extractGameData; don't edit by hand.
+0	Iron Mace	0
+1	Iron Short Sword	0
+2	Iron Kite Shield	0
+3	Iron Square Shield	0
+4	Wooden Shield	0
+5	Medium Iron Helmet	0
+6	Large Iron Helmet	0
+7	Iron Chain Mail Body	0
+8	Iron Plate Mail Body	0
+9	Iron Plate Mail Legs	0
+10	Coins	1
+11	Bronze Arrows	1
+12	Iron Axe	0
+13	Knife	0
+14	Logs	0
+15	Leather Armour	0
+16	Leather Gloves	0
+17	Boots	0
+18	Cabbage	0
+19	Egg	0
+20	Bones	0
+21	Bucket	0
+22	Milk	0
+23	Flour	0
+24	Amulet of GhostSpeak	0
+25	Silverlight key 1	0
+26	Silverlight key 2	0
+27	skull	0
+28	Iron dagger	0
+29	grain	0
+30	Book	0
+31	Fire-Rune	1
+32	Water-Rune	1
+33	Air-Rune	1
+34	Earth-Rune	1
+35	Mind-Rune	1
+36	Body-Rune	1
+37	Life-Rune	1
+38	Death-Rune	1
+39	Needle	1
+40	Nature-Rune	1
+41	Chaos-Rune	1
+42	Law-Rune	1
+43	Thread	1
+44	Holy Symbol of saradomin	0
+45	Unblessed Holy Symbol	0
+46	Cosmic-Rune	1
+47	key	0
+48	key	0
+49	scroll	0
+50	Water	0
+51	Silverlight key 3	0
+52	Silverlight	0
+53	Broken shield	0
+54	Broken shield	0
+55	Cadavaberries	0
+56	message	0
+57	Cadava	0
+58	potion	0
+59	Phoenix Crossbow	0
+60	Crossbow	0
+61	Certificate	0
+62	bronze dagger	0
+63	Steel dagger	0
+64	Mithril dagger	0
+65	Adamantite dagger	0
+66	Bronze Short Sword	0
+67	Steel Short Sword	0
+68	Mithril Short Sword	0
+69	Adamantite Short Sword	0
+70	Bronze Long Sword	0
+71	Iron Long Sword	0
+72	Steel Long Sword	0
+73	Mithril Long Sword	0
+74	Adamantite Long Sword	0
+75	Rune long sword	0
+76	Bronze 2-handed Sword	0
+77	Iron 2-handed Sword	0
+78	Steel 2-handed Sword	0
+79	Mithril 2-handed Sword	0
+80	Adamantite 2-handed Sword	0
+81	rune 2-handed Sword	0
+82	Bronze Scimitar	0
+83	Iron Scimitar	0
+84	Steel Scimitar	0
+85	Mithril Scimitar	0
+86	Adamantite Scimitar	0
+87	bronze Axe	0
+88	Steel Axe	0
+89	Iron battle Axe	0
+90	Steel battle Axe	0
+91	Mithril battle Axe	0
+92	Adamantite battle Axe	0
+93	Rune battle Axe	0
+94	Bronze Mace	0
+95	Steel Mace	0
+96	Mithril Mace	0
+97	Adamantite Mace	0
+98	Rune Mace	0
+99	Brass key	0
+100	staff	0
+101	Staff of Air	0
+102	Staff of water	0
+103	Staff of earth	0
+104	Medium Bronze Helmet	0
+105	Medium Steel Helmet	0
+106	Medium Mithril Helmet	0
+107	Medium Adamantite Helmet	0
+108	Large Bronze Helmet	0
+109	Large Steel Helmet	0
+110	Large Mithril Helmet	0
+111	Large Adamantite Helmet	0
+112	Large Rune Helmet	0
+113	Bronze Chain Mail Body	0
+114	Steel Chain Mail Body	0
+115	Mithril Chain Mail Body	0
+116	Adamantite Chain Mail Body	0
+117	Bronze Plate Mail Body	0
+118	Steel Plate Mail Body	0
+119	Mithril Plate Mail Body	0
+120	Adamantite Plate Mail Body	0
+121	Steel Plate Mail Legs	0
+122	Mithril Plate Mail Legs	0
+123	Adamantite Plate Mail Legs	0
+124	Bronze Square Shield	0
+125	Steel Square Shield	0
+126	Mithril Square Shield	0
+127	Adamantite Square Shield	0
+128	Bronze Kite Shield	0
+129	Steel Kite Shield	0
+130	Mithril Kite Shield	0
+131	Adamantite Kite Shield	0
+132	cookedmeat	0
+133	raw chicken	0
+134	burntmeat	0
+135	pot	0
+136	flour	0
+137	bread dough	0
+138	bread	0
+139	burntbread	0
+140	jug	0
+141	water	0
+142	wine	0
+143	grapes	0
+144	shears	0
+145	wool	0
+146	fur	0
+147	cow hide	0
+148	leather	0
+149	clay	0
+150	copper ore	0
+151	iron ore	0
+152	gold	0
+153	mithril ore	0
+154	adamantite ore	0
+155	coal	0
+156	Bronze Pickaxe	0
+157	uncut diamond	0
+158	uncut ruby	0
+159	uncut emerald	0
+160	uncut sapphire	0
+161	diamond	0
+162	ruby	0
+163	emerald	0
+164	sapphire	0
+165	Herb	0
+166	tinderbox	0
+167	chisel	0
+168	hammer	0
+169	bronze bar	0
+170	iron bar	0
+171	steel bar	0
+172	gold bar	0
+173	mithril bar	0
+174	adamantite bar	0
+175	Pressure gauge	0
+176	Fish Food	0
+177	Poison	0
+178	Poisoned fish food	0
+179	spinach roll	0
+180	Bad wine	0
+181	Ashes	0
+182	Apron	0
+183	Cape	0
+184	Wizards robe	0
+185	wizardshat	0
+186	Brass necklace	0
+187	skirt	0
+188	Longbow	0
+189	Shortbow	0
+190	Crossbow bolts	1
+191	Apron	0
+192	Chef's hat	0
+193	Beer	0
+194	skirt	0
+195	skirt	0
+196	Black Plate Mail Body	0
+197	Staff of fire	0
+198	Magic Staff	0
+199	wizardshat	0
+200	silk	0
+201	flier	0
+202	tin ore	0
+203	Mithril Axe	0
+204	Adamantite Axe	0
+205	bronze battle Axe	0
+206	Bronze Plate Mail Legs	0
+207	Ball of wool	0
+208	Oil can	0
+209	Cape	0
+210	Kebab	0
+211	Spade	0
+212	Closet Key	0
+213	rubber tube	0
+214	Bronze Plated Skirt	0
+215	Iron Plated Skirt	0
+216	Black robe	0
+217	stake	0
+218	Garlic	0
+219	Red spiders eggs	0
+220	Limpwurt root	0
+221	Strength Potion	0
+222	Strength Potion	0
+223	Strength Potion	0
+224	Strength Potion	0
+225	Steel Plated skirt	0
+226	Mithril Plated skirt	0
+227	Adamantite Plated skirt	0
+228	Cabbage	0
+229	Cape	0
+230	Large Black Helmet	0
+231	Red Bead	0
+232	Yellow Bead	0
+233	Black Bead	0
+234	White Bead	0
+235	Amulet of accuracy	0
+236	Redberries	0
+237	Rope	0
+238	Reddye	0
+239	Yellowdye	0
+240	Paste	0
+241	Onion	0
+242	Bronze key	0
+243	Soft Clay	0
+244	wig	0
+245	wig	0
+246	Half full wine jug	0
+247	Keyprint	0
+248	Black Plate Mail Legs	0
+249	banana	0
+250	pastry dough	0
+251	Pie dish	0
+252	cooking apple	0
+253	pie shell	0
+254	Uncooked apple pie	0
+255	Uncooked meat pie	0
+256	Uncooked redberry pie	0
+257	apple pie	0
+258	Redberry pie	0
+259	meat pie	0
+260	burntpie	0
+261	Half a meat pie	0
+262	Half a Redberry pie	0
+263	Half an apple pie	0
+264	Portrait	0
+265	Faladian Knight's sword	0
+266	blurite ore	0
+267	Asgarnian Ale	0
+268	Wizard's Mind Bomb	0
+269	Dwarven Stout	0
+270	Eye of newt	0
+271	Rat's tail	0
+272	Bluedye	0
+273	Goblin Armour	0
+274	Goblin Armour	0
+275	Goblin Armour	0
+276	unstrung Longbow	0
+277	unstrung shortbow	0
+278	Unfired Pie dish	0
+279	unfired pot	0
+280	arrow shafts	1
+281	Woad Leaf	1
+282	Orangedye	0
+283	Gold ring	0
+284	Sapphire ring	0
+285	Emerald ring	0
+286	Ruby ring	0
+287	Diamond ring	0
+288	Gold necklace	0
+289	Sapphire necklace	0
+290	Emerald necklace	0
+291	Ruby necklace	0
+292	Diamond necklace	0
+293	ring mould	0
+294	Amulet mould	0
+295	Necklace mould	0
+296	Gold Amulet	0
+297	Sapphire Amulet	0
+298	Emerald Amulet	0
+299	Ruby Amulet	0
+300	Diamond Amulet	0
+301	Gold Amulet	0
+302	Sapphire Amulet	0
+303	Emerald Amulet	0
+304	Ruby Amulet	0
+305	Diamond Amulet	0
+306	superchisel	0
+307	Mace of Zamorak	0
+308	Bronze Plate Mail top	0
+309	Steel Plate Mail top	0
+310	Mithril Plate Mail top	0
+311	Adamantite Plate Mail top	0
+312	Iron Plate Mail top	0
+313	Black Plate Mail top	0
+314	Sapphire Amulet of magic	0
+315	Emerald Amulet of protection	0
+316	Ruby Amulet of strength	0
+317	Diamond Amulet of power	0
+318	Karamja Rum	0
+319	Cheese	0
+320	Tomato	0
+321	Pizza Base	0
+322	Burnt Pizza	0
+323	Incomplete Pizza	0
+324	Uncooked Pizza	0
+325	Plain Pizza	0
+326	Meat Pizza	0
+327	Anchovie Pizza	0
+328	Half Meat Pizza	0
+329	Half Anchovie Pizza	0
+330	Cake	0
+331	Burnt Cake	0
+332	Chocolate Cake	0
+333	Partial Cake	0
+334	Partial Chocolate Cake	0
+335	Slice of Cake	0
+336	Chocolate Slice	0
+337	Chocolate Bar	0
+338	Cake Tin	0
+339	Uncooked cake	0
+340	Unfired bowl	0
+341	Bowl	0
+342	Bowl of water	0
+343	Incomplete stew	0
+344	Incomplete stew	0
+345	Uncooked stew	0
+346	Stew	0
+347	Burnt Stew	0
+348	Potato	0
+349	Raw Shrimp	0
+350	Shrimp	0
+351	Raw Anchovies	0
+352	Anchovies	0
+353	Burnt fish	0
+354	Raw Sardine	0
+355	Sardine	0
+356	Raw Salmon	0
+357	Salmon	0
+358	Raw Trout	0
+359	Trout	0
+360	Burnt fish	0
+361	Raw Herring	0
+362	Herring	0
+363	Raw Pike	0
+364	Pike	0
+365	Burnt fish	0
+366	Raw Tuna	0
+367	Tuna	0
+368	Burnt fish	0
+369	Raw Swordfish	0
+370	Swordfish	0
+371	Burnt Swordfish	0
+372	Raw Lobster	0
+373	Lobster	0
+374	Burnt Lobster	0
+375	Lobster Pot	0
+376	Net	0
+377	Fishing Rod	0
+378	Fly Fishing Rod	0
+379	Harpoon	0
+380	Fishing Bait	1
+381	Feather	1
+382	Chest key	0
+383	Silver	0
+384	silver bar	0
+385	Holy Symbol of saradomin	0
+386	Holy symbol mould	0
+387	Disk of Returning	0
+388	Monks robe	0
+389	Monks robe	0
+390	Red key	0
+391	Orange Key	0
+392	yellow key	0
+393	Blue key	0
+394	Magenta key	0
+395	black key	0
+396	rune dagger	0
+397	Rune short sword	0
+398	rune Scimitar	0
+399	Medium Rune Helmet	0
+400	Rune Chain Mail Body	0
+401	Rune Plate Mail Body	0
+402	Rune Plate Mail Legs	0
+403	Rune Square Shield	0
+404	Rune Kite Shield	0
+405	rune Axe	0
+406	Rune skirt	0
+407	Rune Plate Mail top	0
+408	Runite bar	0
+409	runite ore	0
+410	Plank	0
+411	Tile	0
+412	skull	0
+413	Big Bones	0
+414	Muddy key	0
+415	Map	0
+416	Map Piece	0
+417	Map Piece	0
+418	Map Piece	0
+419	Nails	1
+420	Anti dragon breath Shield	0
+421	Maze key	0
+422	Pumpkin	0
+423	Black dagger	0
+424	Black Short Sword	0
+425	Black Long Sword	0
+426	Black 2-handed Sword	0
+427	Black Scimitar	0
+428	Black Axe	0
+429	Black battle Axe	0
+430	Black Mace	0
+431	Black Chain Mail Body	0
+432	Black Square Shield	0
+433	Black Kite Shield	0
+434	Black Plated skirt	0
+435	Herb	0
+436	Herb	0
+437	Herb	0
+438	Herb	0
+439	Herb	0
+440	Herb	0
+441	Herb	0
+442	Herb	0
+443	Herb	0
+444	Guam leaf	0
+445	Marrentill	0
+446	Tarromin	0
+447	Harralander	0
+448	Ranarr Weed	0
+449	Irit Leaf	0
+450	Avantoe	0
+451	Kwuarm	0
+452	Cadantine	0
+453	Dwarf Weed	0
+454	Unfinished potion	0
+455	Unfinished potion	0
+456	Unfinished potion	0
+457	Unfinished potion	0
+458	Unfinished potion	0
+459	Unfinished potion	0
+460	Unfinished potion	0
+461	Unfinished potion	0
+462	Unfinished potion	0
+463	Unfinished potion	0
+464	Vial	0
+465	Vial	0
+466	Unicorn horn	0
+467	Blue dragon scale	0
+468	Pestle and mortar	0
+469	Snape grass	0
+470	Medium black Helmet	0
+471	White berries	0
+472	Ground blue dragon scale	0
+473	Ground unicorn horn	0
+474	attack Potion	0
+475	attack Potion	0
+476	attack Potion	0
+477	stat restoration Potion	0
+478	stat restoration Potion	0
+479	stat restoration Potion	0
+480	defense Potion	0
+481	defense Potion	0
+482	defense Potion	0
+483	restore prayer Potion	0
+484	restore prayer Potion	0
+485	restore prayer Potion	0
+486	Super attack Potion	0
+487	Super attack Potion	0
+488	Super attack Potion	0
+489	fishing Potion	0
+490	fishing Potion	0
+491	fishing Potion	0
+492	Super strength Potion	0
+493	Super strength Potion	0
+494	Super strength Potion	0
+495	Super defense Potion	0
+496	Super defense Potion	0
+497	Super defense Potion	0
+498	ranging Potion	0
+499	ranging Potion	0
+500	ranging Potion	0
+501	wine of Zamorak	0
+502	raw bear meat	0
+503	raw rat meat	0
+504	raw beef	0
+505	enchanted bear meat	0
+506	enchanted rat meat	0
+507	enchanted beef	0
+508	enchanted chicken meat	0
+509	Dramen Staff	0
+510	Dramen Branch	0
+511	Cape	0
+512	Cape	0
+513	Cape	0
+514	Cape	0
+515	Greendye	0
+516	Purpledye	0
+517	Iron ore certificate	1
+518	Coal certificate	1
+519	Mithril ore certificate	1
+520	silver certificate	1
+521	Gold certificate	1
+522	Dragonstone Amulet	0
+523	Dragonstone	0
+524	Dragonstone Amulet	0
+525	Crystal key	0
+526	Half of a key	0
+527	Half of a key	0
+528	Iron bar certificate	1
+529	steel bar certificate	1
+530	Mithril bar certificate	1
+531	silver bar certificate	1
+532	Gold bar certificate	1
+533	Lobster certificate	1
+534	Raw lobster certificate	1
+535	Swordfish certificate	1
+536	Raw swordfish certificate	1
+537	Diary	0
+538	Front door key	0
+539	Ball	0
+540	magnet	0
+541	Grey wolf fur	0
+542	uncut dragonstone	0
+543	Dragonstone ring	0
+544	Dragonstone necklace	0
+545	Raw Shark	0
+546	Shark	0
+547	Burnt Shark	0
+548	Big Net	0
+549	Casket	0
+550	Raw cod	0
+551	Cod	0
+552	Raw Mackerel	0
+553	Mackerel	0
+554	Raw Bass	0
+555	Bass	0
+556	Ice Gloves	0
+557	Firebird Feather	0
+558	Firebird Feather	0
+559	Poisoned Iron dagger	0
+560	Poisoned bronze dagger	0
+561	Poisoned Steel dagger	0
+562	Poisoned Mithril dagger	0
+563	Poisoned Rune dagger	0
+564	Poisoned Adamantite dagger	0
+565	Poisoned Black dagger	0
+566	Cure poison Potion	0
+567	Cure poison Potion	0
+568	Cure poison Potion	0
+569	Poison antidote	0
+570	Poison antidote	0
+571	Poison antidote	0
+572	weapon poison	0
+573	ID Paper	0
+574	Poison Bronze Arrows	1
+575	Christmas cracker	0
+576	Party Hat	0
+577	Party Hat	0
+578	Party Hat	0
+579	Party Hat	0
+580	Party Hat	0
+581	Party Hat	0
+582	Miscellaneous key	0
+583	Bunch of keys	0
+584	Whisky	0
+585	Candlestick	0
+586	Master thief armband	0
+587	Blamish snail slime	0
+588	Blamish oil	0
+589	Oily Fishing Rod	0
+590	lava eel	0
+591	Raw lava eel	0
+592	Poison Crossbow bolts	1
+593	Dragon sword	0
+594	Dragon axe	0
+595	Jail keys	0
+596	Dusty Key	0
+597	Charged Dragonstone Amulet	0
+598	Grog	0
+599	Candle	0
+600	black Candle	0
+601	Candle	0
+602	black Candle	0
+603	insect repellant	0
+604	Bat bones	0
+605	wax Bucket	0
+606	Excalibur	0
+607	Druids robe	0
+608	Druids robe	0
+609	Eye patch	0
+610	Unenchanted Dragonstone Amulet	0
+611	Unpowered orb	0
+612	Fire orb	0
+613	Water orb	0
+614	Battlestaff	0
+615	Battlestaff of fire	0
+616	Battlestaff of water	0
+617	Battlestaff of air	0
+618	Battlestaff of earth	0
+619	Blood-Rune	1
+620	Beer glass	0
+621	glassblowing pipe	0
+622	seaweed	0
+623	molten glass	0
+624	soda ash	0
+625	sand	0
+626	air orb	0
+627	earth orb	0
+628	bass certificate	1
+629	Raw bass certificate	1
+630	shark certificate	1
+631	Raw shark certificate	1
+632	Oak Logs	0
+633	Willow Logs	0
+634	Maple Logs	0
+635	Yew Logs	0
+636	Magic Logs	0
+637	Headless Arrows	1
+638	Iron Arrows	1
+639	Poison Iron Arrows	1
+640	Steel Arrows	1
+641	Poison Steel Arrows	1
+642	Mithril Arrows	1
+643	Poison Mithril Arrows	1
+644	Adamantite Arrows	1
+645	Poison Adamantite Arrows	1
+646	Rune Arrows	1
+647	Poison Rune Arrows	1
+648	Oak Longbow	0
+649	Oak Shortbow	0
+650	Willow Longbow	0
+651	Willow Shortbow	0
+652	Maple Longbow	0
+653	Maple Shortbow	0
+654	Yew Longbow	0
+655	Yew Shortbow	0
+656	Magic Longbow	0
+657	Magic Shortbow	0
+658	unstrung Oak Longbow	0
+659	unstrung Oak Shortbow	0
+660	unstrung Willow Longbow	0
+661	unstrung Willow Shortbow	0
+662	unstrung Maple Longbow	0
+663	unstrung Maple Shortbow	0
+664	unstrung Yew Longbow	0
+665	unstrung Yew Shortbow	0
+666	unstrung Magic Longbow	0
+667	unstrung Magic Shortbow	0
+668	barcrawl card	0
+669	bronze arrow heads	1
+670	iron arrow heads	1
+671	steel arrow heads	1
+672	mithril arrow heads	1
+673	adamantite arrow heads	1
+674	rune arrow heads	1
+675	flax	0
+676	bow string	0
+677	Easter egg	0
+678	scorpion cage	0
+679	scorpion cage	0
+680	scorpion cage	0
+681	scorpion cage	0
+682	Enchanted Battlestaff of fire	0
+683	Enchanted Battlestaff of water	0
+684	Enchanted Battlestaff of air	0
+685	Enchanted Battlestaff of earth	0
+686	scorpion cage	0
+687	scorpion cage	0
+688	scorpion cage	0
+689	scorpion cage	0
+690	gold	0
+691	gold bar	0
+692	Ruby ring	0
+693	Ruby necklace	0
+694	Family crest	0
+695	Crest fragment	0
+696	Crest fragment	0
+697	Crest fragment	0
+698	Steel gauntlets	0
+699	gauntlets of goldsmithing	0
+700	gauntlets of cooking	0
+701	gauntlets of chaos	0
+702	robe of Zamorak	0
+703	robe of Zamorak	0
+704	Address Label	0
+705	Tribal totem	0
+706	tourist guide	0
+707	spice	0
+708	Uncooked curry	0
+709	curry	0
+710	Burnt curry	0
+711	yew logs certificate	1
+712	maple logs certificate	1
+713	willow logs certificate	1
+714	lockpick	0
+715	Red vine worms	1
+716	Blanket	0
+717	Raw giant carp	0
+718	giant Carp	0
+719	Fishing competition Pass	0
+720	Hemenster fishing trophy	0
+721	Pendant of Lucien	0
+722	Boots of lightfootedness	0
+723	Ice Arrows	1
+724	Lever	0
+725	Staff of Armadyl	0
+726	Pendant of Armadyl	0
+727	Large cog	0
+728	Large cog	0
+729	Large cog	0
+730	Large cog	0
+731	Rat Poison	0
+732	shiny Key	0
+733	khazard Helmet	0
+734	khazard chainmail	0
+735	khali brew	0
+736	khazard cell keys	0
+737	Poison chalice	0
+738	magic whistle	0
+739	Cup of tea	0
+740	orb of protection	0
+741	orbs of protection	0
+742	Holy table napkin	0
+743	bell	0
+744	Gnome Emerald Amulet of protection	0
+745	magic golden feather	0
+746	Holy grail	0
+747	Script of Hazeel	0
+748	Pineapple	0
+749	Pineapple ring	0
+750	Pineapple Pizza	0
+751	Half pineapple Pizza	0
+752	Magic scroll	0
+753	Mark of Hazeel	0
+754	bloody axe of zamorak	0
+755	carnillean armour	0
+756	Carnillean Key	0
+757	Cattle prod	0
+758	Plagued sheep remains	0
+759	Poisoned animal feed	0
+760	Protective jacket	0
+761	Protective trousers	0
+762	Plagued sheep remains	0
+763	Plagued sheep remains	0
+764	Plagued sheep remains	0
+765	dwellberries	0
+766	Gasmask	0
+767	picture	0
+768	Book	0
+769	Seaslug	0
+770	chocolaty milk	0
+771	Hangover cure	0
+772	Chocolate dust	0
+773	Torch	0
+774	Torch	0
+775	warrant	0
+776	Damp sticks	0
+777	Dry sticks	0
+778	Broken glass	0
+779	oyster pearls	0
+780	little key	0
+781	Scruffy note	0
+782	Glarial's amulet	0
+783	Swamp tar	1
+784	Uncooked Swamp paste	1
+785	Swamp paste	1
+786	Oyster pearl bolts	1
+787	Glarials pebble	0
+788	book on baxtorian	0
+789	large key	0
+790	Oyster pearl bolt tips	1
+791	oyster	0
+792	oyster pearls	0
+793	oyster	0
+794	Soil	0
+795	Dragon medium Helmet	0
+796	Mithril seed	1
+797	An old key	0
+798	pigeon cage	0
+799	Messenger pigeons	0
+800	Bird feed	0
+801	Rotten apples	0
+802	Doctors gown	0
+803	Bronze key	0
+804	Distillator	0
+805	Glarial's urn	0
+806	Glarial's urn	0
+807	Priest robe	0
+808	Priest gown	0
+809	Liquid Honey	0
+810	Ethenea	0
+811	Sulphuric Broline	0
+812	Plague sample	0
+813	Touch paper	0
+814	Dragon Bones	0
+815	Herb	0
+816	Snake Weed	0
+817	Herb	0
+818	Ardrigal	0
+819	Herb	0
+820	Sito Foil	0
+821	Herb	0
+822	Volencia Moss	0
+823	Herb	0
+824	Rogues Purse	0
+825	Soul-Rune	1
+826	king lathas Amulet	0
+827	Bronze Spear	0
+828	halloween mask	0
+829	Dragon bitter	0
+830	Greenmans ale	0
+831	halloween mask	0
+832	halloween mask	0
+833	cocktail glass	0
+834	cocktail shaker	0
+835	Bone Key	0
+836	gnome robe	0
+837	gnome robe	0
+838	gnome robe	0
+839	gnome robe	0
+840	gnome robe	0
+841	gnomeshat	0
+842	gnomeshat	0
+843	gnomeshat	0
+844	gnomeshat	0
+845	gnomeshat	0
+846	gnome top	0
+847	gnome top	0
+848	gnome top	0
+849	gnome top	0
+850	gnome top	0
+851	gnome cocktail guide	0
+852	Beads of the dead	0
+853	cocktail glass	0
+854	cocktail glass	0
+855	lemon	0
+856	lemon slices	0
+857	orange	0
+858	orange slices	0
+859	Diced orange	0
+860	Diced lemon	0
+861	Fresh Pineapple	0
+862	Pineapple chunks	0
+863	lime	0
+864	lime chunks	0
+865	lime slices	0
+866	fruit blast	0
+867	odd looking cocktail	0
+868	Whisky	0
+869	vodka	0
+870	gin	0
+871	cream	0
+872	Drunk dragon	0
+873	Equa leaves	0
+874	SGG	0
+875	Chocolate saturday	0
+876	brandy	0
+877	blurberry special	0
+878	wizard blizzard	0
+879	pineapple punch	0
+880	gnomebatta dough	0
+881	gianne dough	0
+882	gnomebowl dough	0
+883	gnomecrunchie dough	0
+884	gnomebatta	0
+885	gnomebowl	0
+886	gnomebatta	0
+887	gnomecrunchie	0
+888	gnomebowl	0
+889	Uncut Red Topaz	0
+890	Uncut Jade	0
+891	Uncut Opal	0
+892	Red Topaz	0
+893	Jade	0
+894	Opal	0
+895	Swamp Toad	0
+896	Toad legs	0
+897	King worm	0
+898	Gnome spice	0
+899	gianne cook book	0
+900	gnomecrunchie	0
+901	cheese and tomato batta	0
+902	toad batta	0
+903	gnome batta	0
+904	worm batta	0
+905	fruit batta	0
+906	Veg batta	0
+907	Chocolate bomb	0
+908	Vegball	0
+909	worm hole	0
+910	Tangled toads legs	0
+911	Choc crunchies	0
+912	Worm crunchies	0
+913	Toad crunchies	0
+914	Spice crunchies	0
+915	Crushed Gemstone	0
+916	Blurberry badge	0
+917	Gianne badge	0
+918	tree gnome translation	0
+919	Bark sample	0
+920	War ship	0
+921	gloughs journal	0
+922	invoice	0
+923	Ugthanki Kebab	0
+924	special curry	0
+925	glough's key	0
+926	glough's notes	0
+927	Pebble	0
+928	Pebble	0
+929	Pebble	0
+930	Pebble	0
+931	Daconia rock	0
+932	Sinister key	0
+933	Herb	0
+934	Torstol	0
+935	Unfinished potion	0
+936	Jangerberries	0
+937	fruit blast	0
+938	blurberry special	0
+939	wizard blizzard	0
+940	pineapple punch	0
+941	SGG	0
+942	Chocolate saturday	0
+943	Drunk dragon	0
+944	cheese and tomato batta	0
+945	toad batta	0
+946	gnome batta	0
+947	worm batta	0
+948	fruit batta	0
+949	Veg batta	0
+950	Chocolate bomb	0
+951	Vegball	0
+952	worm hole	0
+953	Tangled toads legs	0
+954	Choc crunchies	0
+955	Worm crunchies	0
+956	Toad crunchies	0
+957	Spice crunchies	0
+958	Stone-Plaque	0
+959	Tattered Scroll	0
+960	Crumpled Scroll	0
+961	Bervirius Tomb Notes	0
+962	Zadimus Corpse	0
+963	Potion of Zamorak	0
+964	Potion of Zamorak	0
+965	Potion of Zamorak	0
+966	Boots	0
+967	Boots	0
+968	Boots	0
+969	Boots	0
+970	Boots	0
+971	Santa's hat	0
+972	Locating Crystal	0
+973	Sword Pommel	0
+974	Bone Shard	0
+975	Steel Wire	0
+976	Bone Beads	0
+977	Rashiliya Corpse	0
+978	ResetCrystal	0
+979	Bronze Wire	0
+980	Present	0
+981	Gnome Ball	0
+982	Papyrus	0
+983	A lump of Charcoal	0
+984	Arrow	0
+985	Lit Arrow	1
+986	Rocks	0
+987	Paramaya Rest Ticket	0
+988	Ship Ticket	0
+989	Damp cloth	0
+990	Desert Boots	0
+991	Orb of light	0
+992	Orb of light	0
+993	Orb of light	0
+994	Orb of light	0
+995	Railing	0
+996	Randas's journal	0
+997	Unicorn horn	0
+998	Coat of Arms	0
+999	Coat of Arms	0
+1000	Staff of Iban	0
+1001	Dwarf brew	0
+1002	Ibans Ashes	0
+1003	Cat	0
+1004	A Doll of Iban	0
+1005	Old Journal	0
+1006	Klank's gauntlets	0
+1007	Iban's shadow	0
+1008	Iban's conscience	0
+1009	Amulet of Othainian	0
+1010	Amulet of Doomion	0
+1011	Amulet of Holthion	0
+1012	keep key	0
+1013	Bronze Throwing Dart	1
+1014	Prototype Throwing Dart	1
+1015	Iron Throwing Dart	1
+1016	Full Water Skin	0
+1017	Lens mould	0
+1018	Lens	0
+1019	Desert Robe	0
+1020	Desert Shirt	0
+1021	Metal Key	0
+1022	Slaves Robe Bottom	0
+1023	Slaves Robe Top	0
+1024	Steel Throwing Dart	1
+1025	Astrology Book	0
+1026	Unholy Symbol mould	0
+1027	Unholy Symbol of Zamorak	0
+1028	Unblessed Unholy Symbol of Zamorak	0
+1029	Unholy Symbol of Zamorak	0
+1030	Shantay Desert Pass	1
+1031	Staff of Iban	0
+1032	Dwarf cannon base	0
+1033	Dwarf cannon stand	0
+1034	Dwarf cannon barrels	0
+1035	Dwarf cannon furnace	0
+1036	Fingernails	0
+1037	Powering crystal1	0
+1038	Mining Barrel	0
+1039	Ana in a Barrel	0
+1040	Stolen gold	0
+1041	multi cannon ball	1
+1042	Railing	0
+1043	Ogre tooth	0
+1044	Ogre relic	0
+1045	Skavid map	0
+1046	dwarf remains	0
+1047	Key	0
+1048	Ogre relic part	0
+1049	Ogre relic part	0
+1050	Ogre relic part	0
+1051	Ground bat bones	0
+1052	Unfinished potion	0
+1053	Ogre potion	0
+1054	Magic ogre potion	0
+1055	Tool kit	0
+1056	Nulodion's notes	0
+1057	cannon ammo mould	0
+1058	Tenti Pineapple	0
+1059	Bedobin Copy Key	0
+1060	Technical Plans	0
+1061	Rock cake	0
+1062	Bronze dart tips	1
+1063	Iron dart tips	1
+1064	Steel dart tips	1
+1065	Mithril dart tips	1
+1066	Adamantite dart tips	1
+1067	Rune dart tips	1
+1068	Mithril Throwing Dart	1
+1069	Adamantite Throwing Dart	1
+1070	Rune Throwing Dart	1
+1071	Prototype dart tip	1
+1072	info document	0
+1073	Instruction manual	0
+1074	Unfinished potion	0
+1075	Iron throwing knife	0
+1076	Bronze throwing knife	0
+1077	Steel throwing knife	0
+1078	Mithril throwing knife	0
+1079	Adamantite throwing knife	0
+1080	Rune throwing knife	0
+1081	Black throwing knife	0
+1082	Water Skin mostly full	0
+1083	Water Skin mostly empty	0
+1084	Water Skin mouthful left	0
+1085	Empty Water Skin	0
+1086	nightshade	0
+1087	Shaman robe	0
+1088	Iron Spear	0
+1089	Steel Spear	0
+1090	Mithril Spear	0
+1091	Adamantite Spear	0
+1092	Rune Spear	0
+1093	Cat	0
+1094	Seasoned Sardine	0
+1095	Kittens	0
+1096	Kitten	0
+1097	Wrought iron key	0
+1098	Cell Door Key	0
+1099	A free Shantay Disclaimer	0
+1100	Doogle leaves	0
+1101	Raw Ugthanki Meat	0
+1102	Tasty Ugthanki Kebab	0
+1103	Cooked Ugthanki Meat	0
+1104	Uncooked Pitta Bread	0
+1105	Pitta Bread	0
+1106	Tomato Mixture	0
+1107	Onion Mixture	0
+1108	Onion and Tomato Mixture	0
+1109	Onion and Tomato and Ugthanki Mix	0
+1110	Burnt Pitta Bread	0
+1111	Panning tray	0
+1112	Panning tray	0
+1113	Panning tray	0
+1114	Rock pick	0
+1115	Specimen brush	0
+1116	Specimen jar	0
+1117	Rock Sample	0
+1118	gold Nuggets	1
+1119	cat	0
+1120	Scrumpled piece of paper	0
+1121	Digsite info	0
+1122	Poisoned Bronze Throwing Dart	1
+1123	Poisoned Iron Throwing Dart	1
+1124	Poisoned Steel Throwing Dart	1
+1125	Poisoned Mithril Throwing Dart	1
+1126	Poisoned Adamantite Throwing Dart	1
+1127	Poisoned Rune Throwing Dart	1
+1128	Poisoned Bronze throwing knife	0
+1129	Poisoned Iron throwing knife	0
+1130	Poisoned Steel throwing knife	0
+1131	Poisoned Mithril throwing knife	0
+1132	Poisoned Black throwing knife	0
+1133	Poisoned Adamantite throwing knife	0
+1134	Poisoned Rune throwing knife	0
+1135	Poisoned Bronze Spear	0
+1136	Poisoned Iron Spear	0
+1137	Poisoned Steel Spear	0
+1138	Poisoned Mithril Spear	0
+1139	Poisoned Adamantite Spear	0
+1140	Poisoned Rune Spear	0
+1141	Book of experimental chemistry	0
+1142	Level 1 Certificate	0
+1143	Level 2 Certificate	0
+1144	Level 3 Certificate	0
+1145	Trowel	0
+1146	Stamped letter of recommendation	0
+1147	Unstamped letter of recommendation	0
+1148	Rock Sample	0
+1149	Rock Sample	0
+1150	Cracked rock Sample	0
+1151	Belt buckle	0
+1152	Powering crystal2	0
+1153	Powering crystal3	0
+1154	Powering crystal4	0
+1155	Old boot	0
+1156	Bunny ears	0
+1157	Damaged armour	0
+1158	Damaged armour	0
+1159	Rusty sword	0
+1160	Ammonium Nitrate	0
+1161	Nitroglycerin	0
+1162	Old tooth	0
+1163	Radimus Scrolls	0
+1164	chest key	0
+1165	broken arrow	0
+1166	buttons	0
+1167	broken staff	0
+1168	vase	0
+1169	ceramic remains	0
+1170	Broken glass	0
+1171	Unidentified powder	0
+1172	Machette	0
+1173	Scroll	0
+1174	stone tablet	0
+1175	Talisman of Zaros	0
+1176	Explosive compound	0
+1177	Bull Roarer	0
+1178	Mixed chemicals	0
+1179	Ground charcoal	0
+1180	Mixed chemicals	0
+1181	Spell scroll	0
+1182	Yommi tree seed	1
+1183	Totem Pole	0
+1184	Dwarf cannon base	0
+1185	Dwarf cannon stand	0
+1186	Dwarf cannon barrels	0
+1187	Dwarf cannon furnace	0
+1188	Golden Bowl	0
+1189	Golden Bowl with pure water	0
+1190	Raw Manta ray	0
+1191	Manta ray	0
+1192	Raw Sea turtle	0
+1193	Sea turtle	0
+1194	Annas Silver Necklace	0
+1195	Bobs Silver Teacup	0
+1196	Carols Silver Bottle	0
+1197	Davids Silver Book	0
+1198	Elizabeths Silver Needle	0
+1199	Franks Silver Pot	0
+1200	Thread	0
+1201	Thread	0
+1202	Thread	0
+1203	Flypaper	0
+1204	Murder Scene Pot	0
+1205	A Silver Dagger	0
+1206	Murderers fingerprint	0
+1207	Annas fingerprint	0
+1208	Bobs fingerprint	0
+1209	Carols fingerprint	0
+1210	Davids fingerprint	0
+1211	Elizabeths fingerprint	0
+1212	Franks fingerprint	0
+1213	Zamorak Cape	0
+1214	Saradomin Cape	0
+1215	Guthix Cape	0
+1216	Staff of zamorak	0
+1217	Staff of guthix	0
+1218	Staff of Saradomin	0
+1219	A chunk of crystal	0
+1220	A lump of crystal	0
+1221	A hunk of crystal	0
+1222	A red crystal	0
+1223	Unidentified fingerprint	0
+1224	Annas Silver Necklace	0
+1225	Bobs Silver Teacup	0
+1226	Carols Silver Bottle	0
+1227	Davids Silver Book	0
+1228	Elizabeths Silver Needle	0
+1229	Franks Silver Pot	0
+1230	A Silver Dagger	0
+1231	A glowing red crystal	0
+1232	Unidentified liquid	0
+1233	Radimus Scrolls	0
+1234	Robe	0
+1235	Armour	0
+1236	Dagger	0
+1237	eye patch	0
+1238	Booking of Binding	0
+1239	Holy Water Vial	0
+1240	Enchanted Vial	0
+1241	Scribbled notes	0
+1242	Scrawled notes	0
+1243	Scatched notes	0
+1244	Shamans Tome	0
+1245	Edible seaweed	0
+1246	Rough Sketch of a bowl	0
+1247	Burnt Manta ray	0
+1248	Burnt Sea turtle	0
+1249	Cut reed plant	0
+1250	Magical Fire Pass	0
+1251	Snakes Weed Solution	0
+1252	Ardrigal Solution	0
+1253	Gujuo Potion	0
+1254	Germinated Yommi tree seed	1
+1255	Dark Dagger	0
+1256	Glowing Dark Dagger	0
+1257	Holy Force Spell	0
+1258	Iron Pickaxe	0
+1259	Steel Pickaxe	0
+1260	Mithril Pickaxe	0
+1261	Adamantite Pickaxe	0
+1262	Rune Pickaxe	0
+1263	Sleeping Bag	0
+1264	A blue wizards hat	0
+1265	Gilded Totem Pole	0
+1266	Blessed Golden Bowl	0
+1267	Blessed Golden Bowl with Pure Water	0
+1268	Raw Oomlie Meat	0
+1269	Cooked Oomlie meat Parcel	0
+1270	Dragon Bone Certificate	1
+1271	Limpwurt Root Certificate	1
+1272	Prayer Potion Certificate	1
+1273	Super Attack Potion Certificate	1
+1274	Super Defense Potion Certificate	1
+1275	Super Strength Potion Certificate	1
+1276	Half Dragon Square Shield	0
+1277	Half Dragon Square Shield	0
+1278	Dragon Square Shield	0
+1279	Palm tree leaf	0
+1280	Raw Oomlie Meat Parcel	0
+1281	Burnt Oomlie Meat parcel	0
+1282	Bailing Bucket	0
+1283	Plank	0
+1284	Arcenia root	0
+1285	display tea	0
+1286	Blessed Golden Bowl with plain water	0
+1287	Golden Bowl with plain water	0
+1288	Cape of legends	0
+1289	Scythe	0
+1290	Ironman helm	0
+1291	Ironman platebody	0
+1292	Ironman platelegs	0
+1293	Ultimate ironman helm	0
+1294	Ultimate ironman platebody	0
+1295	Ultimate ironman platelegs	0
+1296	Hardcore ironman helm	0
+1297	Hardcore ironman platebody	0
+1298	Hardcore ironman platelegs	0
+1299	Rune stone	0
+1300	Air talisman	0
+1301	Mind talisman	0
+1302	Water talisman	0
+1303	Earth talisman	0
+1304	Fire talisman	0
+1305	Body talisman	0
+1306	Cosmic talisman	0
+1307	Chaos talisman	0
+1308	Nature talisman	0
+1309	Law talisman	0
+1310	Death talisman	0
+1311	Blood talisman	0
+1312	Research package	0
+1313	Research notes	0
+1314	Ring of recoil	0
+1315	Ring of splendor	0
+1316	Ring of forging	0
+1317	Ring of life	0
+1318	Ring of wealth	0
+1319	Ring of avarice	0
+1320	Dwarven ring	0
+1321	Opal ring	0
+1322	White wolf mask	0
+1323	Blood wolf mask	0
+1324	Black wolf mask	0
+1325	Pink wolf mask	0
+1326	White unicorn mask	0
+1327	Blood unicorn mask	0
+1328	Black unicorn mask	0
+1329	Pink unicorn mask	0
+1330	Trick or treat cracker	0
+1331	Fox mask	0
+1332	Christmas cape	0
+1333	Santa's hat with beard	0
+1334	Christmas Apron	0
+1335	Glass of milk	0
+1336	Cane cookie	0
+1337	Star cookie	0
+1338	Tree cookie	0
+1339	Santa's Gloves	0
+1340	Santa's Mittens	0
+1341	Santa's suit	0
+1342	Santa's suit	0
+1343	Santa's hat	0
+1344	Antlers with red-nose	0
+1345	Beverage glass	0
+1346	Dragon 2-handed Sword	0
+1347	King Black Dragon scale	0
+1348	red apple	0
+1349	grapefruit	0
+1350	papaya	0
+1351	coconut	0
+1352	Red Cabbage	0
+1353	Corn	0
+1354	White Pumpkin	0
+1355	Fruit Picker	0
+1356	Hand Shovel	0
+1357	Herb Clippers	0
+1358	Watering Can	0
+1359	grapefruit slices	0
+1360	Diced grapefruit	0
+1361	Half coconut	0
+1362	Teddy Body	0
+1363	Teddy Head	0
+1364	Teddy	0
+1365	Dragon bar	0
+1366	Chipped Dragon Scale	1
+1367	Dragon Metal Chain	1
+1368	Dragon Scale Mail Body	0
+1369	Dwarf Smithy Note	0
+1370	Leather chaps	0
+1371	Leather top	0
+1372	Leather skirt	0
+1373	Cooking cape	0
+1374	Attack cape	0
+1375	Thieving cape	0
+1376	Fletching cape	0
+1377	Mining cape	0
+1378	Pestilence Mask	0
+1379	Rubber Chicken Cap	0
+1380	Fishing cape	0
+1381	Strength cape	0
+1382	Magic cape	0
+1383	Smithing cape	0
+1384	Crafting cape	0
+1385	Uncharged talisman	0
+1386	Cursed air talisman	0
+1387	Cursed mind talisman	0
+1388	Cursed water talisman	0
+1389	Cursed earth talisman	0
+1390	Cursed fire talisman	0
+1391	Cursed body talisman	0
+1392	Cursed cosmic talisman	0
+1393	Cursed chaos talisman	0
+1394	Cursed nature talisman	0
+1395	Cursed law talisman	0
+1396	Cursed death talisman	0
+1397	Cursed blood talisman	0
+1398	Enfeebled air talisman	0
+1399	Enfeebled mind talisman	0
+1400	Enfeebled water talisman	0
+1401	Enfeebled earth talisman	0
+1402	Enfeebled fire talisman	0
+1403	Enfeebled body talisman	0
+1404	Enfeebled cosmic talisman	0
+1405	Enfeebled chaos talisman	0
+1406	Enfeebled nature talisman	0
+1407	Enfeebled law talisman	0
+1408	Enfeebled death talisman	0
+1409	Enfeebled blood talisman	0
+1410	Fish oil	1
+1411	Runecraft Potion	0
+1412	Runecraft Potion	0
+1413	Runecraft Potion	0
+1414	Super Runecraft Potion	0
+1415	Super Runecraft Potion	0
+1416	Super Runecraft Potion	0
+1417	Pizza Bagel	0
+1418	Bronze Chain Mail Legs	0
+1419	Iron Chain Mail Legs	0
+1420	Steel Chain Mail Legs	0
+1421	Mithril Chain Mail Legs	0
+1422	Adamantite Chain Mail Legs	0
+1423	Rune Chain Mail Legs	0
+1424	Black Chain Mail Legs	0
+1425	Large Dragon Helmet	0
+1426	Dragon Kite Shield	0
+1427	Dragon Plate Mail Body	0
+1428	Dragon Plate Mail Top	0
+1429	Dragon Plate Mail Legs	0
+1430	Dragon Plated Skirt	0
+1431	White CTF Flag	0
+1432	Guthix CTF Flag	0
+1433	Saradomin CTF Flag	0
+1434	Zamorak CTF Flag	0
+1435	White Wings	0
+1436	Medium Valkyrie Helmet	0
+1437	Medium Guthix Valkyrie Helmet	0
+1438	Medium Saradomin Valkyrie Helmet	0
+1439	Medium Zamorak Valkyrie Helmet	0
+1440	Large Valkyrie Helmet	0
+1441	Large Guthix Valkyrie Helmet	0
+1442	Large Saradomin Valkyrie Helmet	0
+1443	Large Zamorak Valkyrie Helmet	0
+1444	Guthix Wings	0
+1445	Saradomin Wings	0
+1446	zamorak Wings	0
+1447	Dragon dagger	0
+1448	Poisoned dragon dagger	0
+1449	Dragon arrows	1
+1450	Poison dragon arrows	1
+1451	Dragon bolts	1
+1452	Poison dragon bolts	1
+1453	Dragon crossbow	0
+1454	Dragon longbow	0
+1455	Watering Can	0
+1456	sugar cane	0
+1457	dragonfruit	0
+1458	sliced dragonfruit	0
+1459	Sweetened Slices	1
+1460	Sweetened Chunks	1
+1461	Mixing bowl	0
+1462	Uncooked seaweed soup	0
+1463	Seaweed soup	0
+1464	Burnt seaweed soup	0
+1465	grapes of Saradomin	0
+1466	grapes of Zamorak	0
+1467	wine of Saradomin	0
+1468	magic Potion	0
+1469	magic Potion	0
+1470	magic Potion	0
+1471	Potion of Saradomin	0
+1472	Potion of Saradomin	0
+1473	Potion of Saradomin	0
+1474	Super ranging Potion	0
+1475	Super ranging Potion	0
+1476	Super ranging Potion	0
+1477	Super magic Potion	0
+1478	Super magic Potion	0
+1479	Super magic Potion	0
+1480	Dragon Woodcutting Axe	0
+1481	Rabbit's Foot	0
+1482	Rabbit's Foot	0
+1483	Rabbit's Foot	0
+1484	Rabbit's Foot	0
+1485	Rabbit's Foot	0
+1486	Ring of Bunny	0
+1487	Ring of Egg	0
+1488	Racist - Do Not Use	0
+1489	Uncooked pumpkin pie	0
+1490	Pumpkin pie	0
+1491	Half a pumpkin pie	0
+1492	Uncooked white pumpkin pie	0
+1493	White pumpkin pie	0
+1494	Half a white pumpkin pie	0
+1495	Eak the Mouse	0
+1496	Yoyo	0
+1497	Ogre Ears	0
+1498	Leather vest	0
+1499	Makeover Waiver	0
+1500	Soft Yellowgreen Clay	0
+1501	Ogre recipes	0
+1502	Crown mould	0
+1503	Gold Crown	0
+1504	Sapphire Crown	0
+1505	Emerald Crown	0
+1506	Ruby Crown	0
+1507	Diamond Crown	0
+1508	Dragonstone Crown	0
+1509	Crown of dew	0
+1510	Crown of mimicry	0
+1511	Crown of the artisan	0
+1512	Crown of the items	0
+1513	Crown of the herbalist	0
+1514	Crown of the occult	0
+1515	halloween mask	0
+1516	Cape of Inclusion	0
+1517	halloween mask	0
+1518	Agility cape	0
+1519	Defense cape	0
+1520	Firemaking cape	0
+1521	Herblaw cape	0
+1522	Hits cape	0
+1523	Prayer cape	0
+1524	Ranged cape	0
+1525	Woodcutting cape	0
+1526	Harvesting cape	0
+1527	Runecraft cape	0
+1528	Quest cape	0
+1529	Max cape	0
+1530	Bronze Chain Mail Top	0
+1531	Iron Chain Mail Top	0
+1532	Steel Chain Mail Top	0
+1533	Black Chain Mail Top	0
+1534	Mithril Chain Mail Top	0
+1535	Adamantite Chain Mail Top	0
+1536	Rune Chain Mail Top	0
+1537	Dragon Scale Mail Top	0
+1538	Animal fat	0
+1539	Treated hide	0
+1540	lean bear meat	0
+1541	lean rat meat	0
+1542	lean beef	0
+1543	Rune stone certificate	1
+1544	Unobtanium	0
+1545	Unobtanium	1
+1546	stat restoration Potion certificate	1
+1547	giant carp certificate	1
+1548	Lava eel certificate	1
+1549	Poison antidote certificate	1
+1550	Manta ray certificate	1
+1551	Sea turtle certificate	1
+1552	Cure poison Potion certificate	1
+1553	Biggum Flodrot	0
+1554	Ironman plate top	0
+1555	Ultimate ironman plate top	0
+1556	Hardcore ironman plate top	0
+1557	Ironman plated skirt	0
+1558	Ultimate ironman plated skirt	0
+1559	Hardcore ironman plated skirt	0
+1560	Bonecrusher	0
+1561	Chipped pestle and mortar	0
+1562	aluminium bar	0
+1563	aluminium cog	0
+1564	Wooden box	0
+1565	Ring of Skull	0
+1566	halloween mask	0
+1567	Spookie's Bones	0
+1568	Scarie's Bones	0
+1569	Lily's Pumpkin	0
+1570	Uncooked Lily's pumpkin pie	0
+1571	Lily's pumpkin pie	0
+1572	Half a Lily's pumpkin pie	0
+1573	Duke Horacio's Journal	0
+1574	parchment	0
+1575	Apology letter	0
+1576	Christmas sweater	0
+1577	Christmas sweater	0
+1578	Christmas sweater	0
+1579	Christmas sweater	0
+1580	Christmas sweater	0
+1581	Christmas sweater	0
+1582	Party Hat	0
+1583	Santa's hat	0
+1584	Christmas sweater	0
+1585	Christmas sweater	0
+1586	Christmas sweater	0
+1587	Christmas sweater	0
+1588	Christmas sweater	0
+1589	Christmas sweater	0
+1590	Necronomicon Ex Mortis	0
+1591	Ancient amulet	0
+1592	Boomstick	0
