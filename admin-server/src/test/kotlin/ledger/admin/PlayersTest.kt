@@ -67,7 +67,7 @@ class PlayersTest {
         assertTrue(""""questPoints":7""" in body)
         assertTrue("""{"skill":"hits","name":"Hits","level":10,"fullLevel":10,"experience":1154}""" in body, body)
         assertEquals(20, Regex(""""skill":"""").findAll(body).count())
-        assertTrue(body.endsWith(""""quests":[{"id":0,"name":"Black knight's fortress","stage":-1,"complete":true},{"id":3,"name":"Doric's quest","stage":2,"complete":false}]}"""), body)
+        assertTrue(""""quests":[{"id":0,"name":"Black knight's fortress","stage":-1,"complete":true},{"id":3,"name":"Doric's quest","stage":2,"complete":false}]""" in body, body)
         for (secret in listOf("placeholder", "example.invalid", "192.0.2.")) {
             assertFalse(secret in body, "The player page contains $secret")
         }
@@ -84,5 +84,21 @@ class PlayersTest {
     fun `a player's page has no data before the first copy`() = testApplication {
         application { adminModule(lastCopy = { null }, gameData = SqliteGameData(copy)) }
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/players/1").status)
+    }
+
+    @Test
+    fun `a player's page lists equipment, inventory and bank with item names`() = testApplication {
+        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+        val body = client.get("/api/players/1").bodyAsText()
+        val mace = """{"slot":0,"itemId":0,"name":"Iron Mace","amount":1,"noted":false,"worn":true}"""
+        val shield = """{"slot":1,"itemId":4,"name":"Wooden Shield","amount":1,"noted":false,"worn":true}"""
+        assertTrue(""""equipment":[$mace,$shield]""" in body, body)
+        assertTrue(
+            """"inventory":[$mace,$shield,{"slot":2,"itemId":10,"name":"Coins","amount":1250,"noted":false,"worn":false},""" +
+                """{"slot":3,"itemId":156,"name":"Bronze Pickaxe","amount":1,"noted":false,"worn":false}]""" in body,
+            body,
+        )
+        assertTrue(""""bank":[{"slot":0,"itemId":10,"name":"Coins","amount":50000,"noted":false,"worn":false},""" in body, body)
+        assertTrue("""{"slot":1,"itemId":14,"name":"Logs","amount":120,"noted":true,"worn":false}""" in body, body)
     }
 }

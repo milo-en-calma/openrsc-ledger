@@ -50,3 +50,29 @@ internal object Quests : Table("quests") {
 
 /** The stage the server gives a finished quest (`Quests.QUEST_STAGE_COMPLETED`). */
 const val QUEST_COMPLETE = -1
+
+/**
+ * A table of slots holding items, keyed by player: `invitems` (the inventory) or `bank`.
+ * Each slot points at an [ItemStatuses] row, which says what the item is.
+ */
+internal open class ItemSlotTable(name: String) : Table(name) {
+    val playerId = integer("playerID")
+    /** The [ItemStatuses] row; not the item's type. */
+    val itemStatusId = integer("itemID")
+    val slot = integer("slot")
+}
+
+internal object InvItems : ItemSlotTable("invitems")
+internal object BankItems : ItemSlotTable("bank")
+
+/** One held item: what it is, how many, and whether it's noted or worn. */
+internal object ItemStatuses : Table("itemstatuses") {
+    val id = integer("itemID")
+    /** The item's type, the number the game data names. */
+    val catalogId = integer("catalogID")
+    val amount = integer("amount")
+    val noted = integer("noted")
+    val wielded = integer("wielded")
+
+    override val primaryKey = PrimaryKey(id)
+}

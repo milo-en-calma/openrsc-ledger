@@ -104,6 +104,35 @@ class SqliteGameDataTest {
         assertEquals(0x3fffffff, shownExperience(-1))
     }
 
+    @Test
+    fun `reads a player's inventory and bank by slot, with what each item is`() {
+        val player = assertNotNull(gameData.player(1))
+        assertEquals(
+            listOf(
+                HeldItem(slot = 0, itemId = 0, amount = 1, noted = false, worn = true),
+                HeldItem(slot = 1, itemId = 4, amount = 1, noted = false, worn = true),
+                HeldItem(slot = 2, itemId = 10, amount = 1250, noted = false, worn = false),
+                HeldItem(slot = 3, itemId = 156, amount = 1, noted = false, worn = false),
+            ),
+            player.inventory,
+        )
+        assertEquals(
+            listOf(
+                HeldItem(slot = 0, itemId = 10, amount = 50000, noted = false, worn = false),
+                HeldItem(slot = 1, itemId = 14, amount = 120, noted = true, worn = false),
+                HeldItem(slot = 2, itemId = 373, amount = 1, noted = false, worn = false),
+            ),
+            player.bank,
+        )
+    }
+
+    @Test
+    fun `a player with nothing has an empty inventory and bank`() {
+        val player = assertNotNull(gameData.player(2))
+        assertEquals(emptyList(), player.inventory)
+        assertEquals(emptyList(), player.bank)
+    }
+
     private fun sql(statement: String) {
         DriverManager.getConnection("jdbc:sqlite:$file").use { it.createStatement().executeUpdate(statement) }
     }

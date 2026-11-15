@@ -176,3 +176,27 @@ INSERT INTO `quests` (`playerID`, `id`, `stage`)
 VALUES (1, 3, 2),
        (1, 0, -1),
        (3, 2, -1);
+
+-- Belongings. Each row of invitems and bank points at an itemstatuses row holding the
+-- item's type (catalogID), amount, and whether it's noted or worn. Bramblewick wears an
+-- Iron Mace and a Wooden Shield and carries coins and a pickaxe; their bank holds coins,
+-- noted logs and lobsters. Tansy Moss has nothing.
+INSERT INTO `itemstatuses` (`itemID`, `catalogID`, `amount`, `noted`, `wielded`)
+VALUES (101, 0, 1, 0, 1),
+       (102, 4, 1, 0, 1),
+       (103, 10, 1250, 0, 0),
+       (104, 156, 1, 0, 0),
+       (201, 10, 50000, 0, 0),
+       (202, 14, 120, 1, 0),
+       (203, 373, 1, 0, 0),
+       (301, 20, 1, 0, 0);
+INSERT INTO `invitems` (`playerID`, `itemID`, `slot`)
+VALUES (1, 103, 2),
+       (1, 101, 0),
+       (1, 102, 1),
+       (1, 104, 3),
+       (3, 301, 0);
+INSERT INTO `bank` (`playerID`, `itemID`, `slot`)
+VALUES (1, 202, 1),
+       (1, 201, 0),
+       (1, 203, 2);

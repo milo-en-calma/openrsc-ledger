@@ -7,6 +7,7 @@ import io.ktor.server.routing.Route
 import kotlinx.serialization.Serializable
 import ledger.core.copy.CopyRecord
 import ledger.core.game.GameData
+import ledger.core.game.HeldItem
 import ledger.core.game.PlayerDetails
 import ledger.core.game.PlayerSummary
 import ledger.core.game.shownExperience
@@ -35,6 +36,26 @@ data class PlayerPage(
     val skills: List<SkillRow>,
     /** Every quest the player has started, by quest number. */
     val quests: List<QuestRow>,
+    /** What the player is wearing or wielding: the worn items in their inventory. */
+    val equipment: List<ItemRow>,
+    /** What the player carries, by slot, worn items included. */
+    val inventory: List<ItemRow>,
+    /** What the player has banked, by slot. */
+    val bank: List<ItemRow>,
+)
+
+@Serializable
+data class ItemRow(
+    val slot: Int,
+    /** The item's type. */
+    val itemId: Int,
+    /** The item's name, or null if the ledger's game data doesn't know the number. */
+    val name: String?,
+    val amount: Int,
+    /** Whether it's a bank note standing for [amount] of the item. */
+    val noted: Boolean,
+    /** Whether the player is wearing or wielding it. */
+    val worn: Boolean,
 )
 
 @Serializable
@@ -98,7 +119,7 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: G
     }
 
     get("/api/players/{id}", {
-        description = "One player's skills and quests."
+        description = "One player's skills, quests, equipment, inventory and bank."
         request {
             pathParameter<Int>("id") { description = "The player's id, from the player list." }
         }
@@ -143,6 +164,18 @@ private fun PlayerDetails.toPage(names: GameNames) = PlayerPage(
         )
     },
     quests = quests.map { QuestRow(id = it.questId, name = names.quest(it.questId), stage = it.stage, complete = it.complete) },
+    equipment = inventory.filter { it.worn }.map { it.toRow(names) },
+    inventory = inventory.map { it.toRow(names) },
+    bank = bank.map { it.toRow(names) },
+)
+
+private fun HeldItem.toRow(names: GameNames) = ItemRow(
+    slot = slot,
+    itemId = itemId,
+    name = names.item(itemId)?.name,
+    amount = amount,
+    noted = noted,
+    worn = worn,
 )
 
 private fun PlayerSummary.toListItem() = PlayerListItem(

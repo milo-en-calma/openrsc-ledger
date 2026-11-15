@@ -40,6 +40,10 @@ data class PlayerDetails(
     val skills: Map<Skill, SkillStanding>,
     /** Every quest the player has started, by quest number. */
     val quests: List<QuestProgress>,
+    /** What the player carries, by slot. Worn items are here too, marked [HeldItem.worn]. */
+    val inventory: List<HeldItem>,
+    /** What the player has banked, by slot. */
+    val bank: List<HeldItem>,
 )
 
 /** Where a player stands in one skill. */
@@ -56,3 +60,15 @@ data class SkillStanding(
 data class QuestProgress(val questId: Int, val stage: Int) {
     val complete: Boolean get() = stage == QUEST_COMPLETE
 }
+
+/** An item in an inventory or bank slot. */
+data class HeldItem(
+    val slot: Int,
+    /** The item's type, the number the game data names. */
+    val itemId: Int,
+    val amount: Int,
+    /** Whether it's a bank note standing for [amount] of the item. */
+    val noted: Boolean,
+    /** Whether the player is wearing or wielding it. */
+    val worn: Boolean,
+)

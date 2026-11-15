@@ -5,6 +5,7 @@ import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
 
 type Skill = components["schemas"]["SkillRow"];
+type Item = components["schemas"]["ItemRow"];
 
 export function PlayerPage() {
   const id = Number(useParams().id);
@@ -35,7 +36,7 @@ export function PlayerPage() {
     );
   }
 
-  const { player, questPoints, skills, quests } = page.data;
+  const { player, questPoints, skills, quests, equipment, inventory, bank } = page.data;
   return (
     <Stack>
       <BackToPlayers />
@@ -99,6 +100,55 @@ export function PlayerPage() {
           )}
         </Stack>
       </SimpleGrid>
+
+      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="xl">
+        <ItemList title="Equipment" items={equipment} empty="Wearing nothing." />
+        <ItemList title="Inventory" items={inventory} empty="Carrying nothing." markWorn />
+        <ItemList title="Bank" items={bank} empty="Nothing banked." />
+      </SimpleGrid>
+    </Stack>
+  );
+}
+
+/** A titled list of items with their amounts. Noted items are marked, and worn ones too with [markWorn]. */
+function ItemList({ title, items, empty, markWorn = false }: { title: string; items: Item[]; empty: string; markWorn?: boolean }) {
+  return (
+    <Stack gap="xs">
+      <Title order={3}>{title}</Title>
+      {items.length === 0 ? (
+        <Text c="dimmed">{empty}</Text>
+      ) : (
+        <Table striped>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Item</Table.Th>
+              <Table.Th ta="right">Amount</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {items.map((item) => (
+              <Table.Tr key={item.slot}>
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap">
+                    {item.name ?? `Item ${item.itemId}`}
+                    {item.noted && (
+                      <Badge size="xs" variant="light">
+                        noted
+                      </Badge>
+                    )}
+                    {markWorn && item.worn && (
+                      <Badge size="xs" variant="light" color="grape">
+                        worn
+                      </Badge>
+                    )}
+                  </Group>
+                </Table.Td>
+                <Table.Td ta="right">{item.amount.toLocaleString()}</Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      )}
     </Stack>
   );
 }

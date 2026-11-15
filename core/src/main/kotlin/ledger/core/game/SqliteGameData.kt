@@ -79,8 +79,26 @@ class SqliteGameData(file: Path) : GameData {
                 )
             },
             quests = quests,
+            inventory = heldItems(InvItems, id),
+            bank = heldItems(BankItems, id),
         )
     }
+
+    /** The items in one player's slots of [table], by slot. Call inside a transaction. */
+    private fun heldItems(table: ItemSlotTable, playerId: Int): List<HeldItem> =
+        table.join(ItemStatuses, JoinType.INNER, table.itemStatusId, ItemStatuses.id)
+            .selectAll()
+            .where { table.playerId eq playerId }
+            .orderBy(table.slot)
+            .map { row ->
+                HeldItem(
+                    slot = row[table.slot],
+                    itemId = row[ItemStatuses.catalogId],
+                    amount = row[ItemStatuses.amount],
+                    noted = row[ItemStatuses.noted] == 1,
+                    worn = row[ItemStatuses.wielded] == 1,
+                )
+            }
 
     private fun ResultRow.toPlayerSummary() = PlayerSummary(
         id = this[Players.id],

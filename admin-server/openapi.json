@@ -77,7 +77,7 @@
     "/api/players/{id}" : {
       "get" : {
         "tags" : [ ],
-        "description" : "One player's skills and quests.",
+        "description" : "One player's skills, quests, equipment, inventory and bank.",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -235,6 +235,33 @@
         },
         "required" : [ "complete", "id", "stage" ]
       },
+      "ItemRow" : {
+        "type" : "object",
+        "properties" : {
+          "slot" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "itemId" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : [ "null", "string" ]
+          },
+          "amount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "noted" : {
+            "type" : "boolean"
+          },
+          "worn" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "amount", "itemId", "noted", "slot", "worn" ]
+      },
       "PlayerPage" : {
         "type" : "object",
         "properties" : {
@@ -256,9 +283,27 @@
             "items" : {
               "$ref" : "#/components/schemas/QuestRow"
             }
+          },
+          "equipment" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ItemRow"
+            }
+          },
+          "inventory" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ItemRow"
+            }
+          },
+          "bank" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ItemRow"
+            }
           }
         },
-        "required" : [ "player", "questPoints", "quests", "skills" ]
+        "required" : [ "bank", "equipment", "inventory", "player", "questPoints", "quests", "skills" ]
       }
     },
     "examples" : { }
