@@ -12,15 +12,15 @@ carries, are planned as a separate build of the same code.
 else; it never writes to it, and it never changes the game, the server or any player.
 
 > **Status:** early. One command starts the game server and the ledger, which keeps a
-> fresh copy of the server's database and records how every player's skills change; the API
-> gives experience gained over any period from that record (`/api/history/gains`). The first screen lists every player, with their
-> combat level, total level and last login, sortable and searchable by name; each
-> player's page shows their 20 skills, their quests, and what they wear, carry and bank,
-> all by name. Leaderboards rank everyone the classic way, per skill and overall; tied
-> players share a rank, and the server's staff are left off unless "Show staff" is
-> switched on. The economy screen totals every coin and every item held, across
-> all inventories and banks, and each item links to a page of who holds it. The header shows how fresh the data
-> is.
+> fresh copy of the server's database and records how every player's skills change; the
+> API gives experience gained over any period from that record (`/api/history/gains`).
+> The first screen lists every player, with their combat level, total level and last
+> login, sortable and searchable by name; each player's page shows their 20 skills, their
+> quests, and what they wear, carry and bank, all by name. Leaderboards rank everyone the
+> classic way, per skill and overall; tied players share a rank, and the server's staff
+> are left off unless "Show staff" is switched on. The economy screen totals every coin
+> and every item held, across all inventories and banks, and each item links to a page of
+> who holds it. The header shows how fresh the data is.
 
 ## Requirements
 
@@ -39,6 +39,7 @@ cp ledger.conf.example ledger.conf     # then set openrsc.dir; every setting is 
 `./ledger up` builds the ledger if anything changed, starts the OpenRSC game server if it
 isn't already running, starts the ledger, and opens it in a browser
 (<http://127.0.0.1:8080>, or whichever `port` you set). Add `--no-browser` to skip that.
+It reads `ledger.conf` beside the script, or the file named by `$LEDGER_CONF`.
 
 - **The game server** is started the way OpenRSC's own launcher does,
   `ant runserver -DconfFile=<openrsc.world>` in its `server/` folder, with whichever Java
@@ -58,7 +59,8 @@ isn't already running, starts the ledger, and opens it in a browser
   away and starts a new one. When no server is running, it shows the end of the last log.
 - **The ledger** gets a Java 25: `$LEDGER_JAVA_HOME`, else `$JAVA_HOME`, else one found on
   the system.
-- **Ctrl-C stops the ledger and leaves the game server running.** The server can't be
+- **Ctrl-C stops the ledger and leaves the game server running,** and so does a TERM
+  signal to `./ledger up`, for a launcher running in the background. The server can't be
   stopped from outside without losing what players did since its last autosave: it
   saves players only when shut down from inside the game. To stop it, log in as an admin
   and type `::shutdown`, which counts down, then saves and logs everyone out. For the same
@@ -137,6 +139,7 @@ plugins. To extract them again, say after updating OpenRSC:
 Worlds set to an older era of the game (`based_config_data` below 85) rename some items;
 the ledger uses the current names.
 
+## Development
 
 Run the server and the frontend separately, so frontend changes show up instantly:
 
@@ -169,9 +172,11 @@ The running server also serves the spec at `/api/openapi.json`.
 
 ## Layout
 
-| Folder | What's in it |
+| Path | What's in it |
 |---|---|
-| `core/` | Kotlin code shared by every build of the app: settings, finding and copying the game's database, and reading it (with [Exposed](https://github.com/JetBrains/Exposed)). Its `src/testFixtures` builds a test database of invented players |
+| `ledger` | The launcher: `./ledger up` and `./ledger logs` |
+| `scripts/` | The launcher's helpers: `ant-filter.awk`, which picks the lines of Ant's output kept in `data/game-server.log` |
+| `core/` | Kotlin code shared by every build of the app: settings, finding and copying the game's database, reading it (with [Exposed](https://github.com/JetBrains/Exposed)), and keeping the skill history. Its `src/testFixtures` builds a test database of invented players |
 | `admin-server/` | The admin console's server ([Ktor](https://ktor.io)), serving the API and the built frontend |
 | `web/` | The frontend: React and TypeScript, built with Vite, using Mantine, TanStack Query, TanStack Table and React Router |
 
