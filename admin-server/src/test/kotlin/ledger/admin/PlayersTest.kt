@@ -3,24 +3,18 @@ package ledger.admin
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.jsonArray
 import ledger.admin.routes.NO_COPY_YET
-import ledger.core.copy.CopyRecord
-import ledger.core.fixture.Fixtures
 import ledger.core.game.SqliteGameData
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.time.Instant
 
 class PlayersTest {
-    private val copy = Fixtures.database(Files.createTempDirectory("players").resolve("copy.db"))
-    private val copied = CopyRecord(copiedAt = Instant.parse("2026-01-01T09:20:00Z"), liveModified = Instant.parse("2026-01-01T09:19:00Z"))
+    private val game = SqliteGameData(testDatabase())
 
     @Test
-    fun `lists every player`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `lists every player`() = adminTest(game) {
         val response = client.get("/api/players")
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals(
@@ -34,47 +28,40 @@ class PlayersTest {
     }
 
     @Test
-    fun `searches by name`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
-        val body = client.get("/api/players?search=moss").bodyAsText()
-        assertEquals(listOf("Tansy Moss"), Regex(""""name":"([^"]*)"""").findAll(body).map { it.groupValues[1] }.toList())
+    fun `searches by name`() = adminTest(game) {
+        assertEquals(listOf("Tansy Moss"), getJson("/api/players?search=moss")["players"].strings("name"))
     }
 
     @Test
-    fun `says there is no data before the first copy`() = testApplication {
-        application { adminModule(lastCopy = { null }, gameData = SqliteGameData(copy)) }
+    fun `says there is no data before the first copy`() = adminTest(game, copied = false) {
         val response = client.get("/api/players")
         assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
         assertEquals("""{"message":"$NO_COPY_YET"}""", response.bodyAsText())
     }
 
     @Test
-    fun `a player's page shows experience as players see it, every skill, and quests`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `a player's page shows experience as players see it, every skill, and quests`() = adminTest(game) {
         val body = client.get("/api/players/1").bodyAsText()
         assertTrue(body.startsWith("""{"player":{"id":1,"name":"Bramblewick","""), body)
         assertTrue(""""questPoints":7""" in body)
         assertTrue("""{"skill":"hits","name":"Hits","level":10,"fullLevel":10,"experience":1154}""" in body, body)
-        assertEquals(20, Regex(""""skill":"""").findAll(body).count())
+        assertEquals(20, getJson("/api/players/1")["skills"].jsonArray.size)
         assertTrue(""""quests":[{"id":0,"name":"Black knight's fortress","stage":-1,"complete":true},{"id":3,"name":"Doric's quest","stage":2,"complete":false}]""" in body, body)
     }
 
     @Test
-    fun `an unknown player is not found`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `an unknown player is not found`() = adminTest(game) {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/players/99").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/api/players/not-a-number").status)
     }
 
     @Test
-    fun `a player's page has no data before the first copy`() = testApplication {
-        application { adminModule(lastCopy = { null }, gameData = SqliteGameData(copy)) }
+    fun `a player's page has no data before the first copy`() = adminTest(game, copied = false) {
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/players/1").status)
     }
 
     @Test
-    fun `a player's page lists equipment, inventory and bank with item names`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `a player's page lists equipment, inventory and bank with item names`() = adminTest(game) {
         val body = client.get("/api/players/1").bodyAsText()
         val mace = """{"slot":0,"itemId":0,"name":"Iron Mace","amount":1,"noted":false,"worn":true}"""
         val shield = """{"slot":1,"itemId":4,"name":"Wooden Shield","amount":1,"noted":false,"worn":true}"""

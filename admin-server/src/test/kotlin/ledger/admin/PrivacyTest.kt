@@ -3,7 +3,6 @@ package ledger.admin
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -11,7 +10,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import ledger.core.copy.CopyRecord
 import ledger.core.fixture.Fixtures
 import ledger.core.game.Skill
 import ledger.core.game.SkillValue
@@ -33,9 +31,6 @@ import kotlin.time.Instant
  * addresses and IP addresses. A new route is covered as soon as it is in the spec.
  */
 class PrivacyTest {
-    private val copy = Fixtures.database(Files.createTempDirectory("privacy").resolve("copy.db"))
-    private val copied = CopyRecord(copiedAt = Instant.parse("2026-01-01T09:20:00Z"), liveModified = Instant.parse("2026-01-01T09:19:00Z"))
-
     /** History for every test player, so the history routes answer with names too. */
     private val history = object : HistoryReader {
         override fun recordedSince(): Instant = Instant.parse("2026-01-01T08:00:00Z")
@@ -68,8 +63,7 @@ class PrivacyTest {
     private val privateKeys = setOf("email", "pass", "password", "salt", "creation_ip", "login_ip", "ip")
 
     @Test
-    fun `no route sends private player data`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy), history = history) }
+    fun `no route sends private player data`() = adminTest(SqliteGameData(testDatabase()), history = history) {
         val urls = getRoutes().map(::sampleUrl)
         assertTrue(urls.size >= 8, "Found only ${urls.size} routes in openapi.json")
 

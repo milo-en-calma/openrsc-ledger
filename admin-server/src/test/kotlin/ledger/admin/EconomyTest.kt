@@ -3,23 +3,16 @@ package ledger.admin
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.testApplication
-import ledger.core.copy.CopyRecord
-import ledger.core.fixture.Fixtures
 import ledger.core.game.SqliteGameData
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.time.Instant
 
 class EconomyTest {
-    private val copy = Fixtures.database(Files.createTempDirectory("economy").resolve("copy.db"))
-    private val copied = CopyRecord(copiedAt = Instant.parse("2026-01-01T09:20:00Z"), liveModified = Instant.parse("2026-01-01T09:19:00Z"))
+    private val game = SqliteGameData(testDatabase())
 
     @Test
-    fun `totals coins and lists items most-held first, with names`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `totals coins and lists items most-held first, with names`() = adminTest(game) {
         val body = client.get("/api/economy").bodyAsText()
         assertTrue(body.startsWith("""{"coins":{"inInventories":1250,"inBanks":50000,"total":51250},"items":["""), body)
         assertTrue(
@@ -30,14 +23,12 @@ class EconomyTest {
     }
 
     @Test
-    fun `no coins is zero, not missing`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = NoGameData) }
+    fun `no coins is zero, not missing`() = adminTest(NoGameData) {
         assertEquals("""{"coins":{"inInventories":0,"inBanks":0,"total":0},"items":[]}""", client.get("/api/economy").bodyAsText())
     }
 
     @Test
-    fun `lists who holds an item, with the world's total`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `lists who holds an item, with the world's total`() = adminTest(game) {
         assertEquals(
             """{"itemId":10,"name":"Coins","held":{"inInventories":1250,"inBanks":50000,"total":51250},"holders":[""" +
                 """{"playerId":1,"name":"Bramblewick","staff":false,"held":{"inInventories":1250,"inBanks":50000,"total":51250}}]}""",
@@ -46,8 +37,7 @@ class EconomyTest {
     }
 
     @Test
-    fun `a named item nobody holds has no holders, and an unknown one isn't found`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `a named item nobody holds has no holders, and an unknown one isn't found`() = adminTest(game) {
         // Item 1 is an iron short sword, which nobody in the test database holds.
         assertEquals(
             """{"itemId":1,"name":"Iron Short Sword","held":{"inInventories":0,"inBanks":0,"total":0},"holders":[]}""",
@@ -58,8 +48,7 @@ class EconomyTest {
     }
 
     @Test
-    fun `waits for the first copy`() = testApplication {
-        application { adminModule(lastCopy = { null }, gameData = SqliteGameData(copy)) }
+    fun `waits for the first copy`() = adminTest(game, copied = false) {
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/economy").status)
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/items/10/holders").status)
     }

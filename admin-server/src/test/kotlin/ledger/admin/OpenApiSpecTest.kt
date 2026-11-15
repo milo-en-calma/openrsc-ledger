@@ -2,7 +2,6 @@ package ledger.admin
 
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
-import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
@@ -17,14 +16,13 @@ class OpenApiSpecTest {
     private val committed = Path.of("openapi.json")
 
     @Test
-    fun `committed spec matches the routes`() = testApplication {
-        application { adminModule(lastCopy = { null }, gameData = NoGameData) }
+    fun `committed spec matches the routes`() = adminTest(copied = false) {
         startApplication()
         val generated = client.get(OPENAPI_PATH).bodyAsText().trimEnd() + "\n"
 
         if (System.getProperty("ledger.updateOpenApi").toBoolean()) {
             Files.writeString(committed, generated)
-            return@testApplication
+            return@adminTest
         }
         val current = if (Files.exists(committed)) Files.readString(committed) else ""
         assertEquals(

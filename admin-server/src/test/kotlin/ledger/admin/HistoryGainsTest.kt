@@ -3,24 +3,18 @@ package ledger.admin
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.testApplication
-import ledger.core.copy.CopyRecord
-import ledger.core.fixture.Fixtures
 import ledger.core.game.Skill
 import ledger.core.game.SkillValue
 import ledger.core.game.SqliteGameData
 import ledger.core.history.HistoryReader
 import ledger.core.history.SkillChange
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class HistoryGainsTest {
-    private val copy = Fixtures.database(Files.createTempDirectory("gains").resolve("copy.db"))
-    private val copied = CopyRecord(copiedAt = Instant.parse("2026-01-01T09:20:00Z"), liveModified = Instant.parse("2026-01-01T09:19:00Z"))
-    private val began = Instant.parse("2026-01-01T08:00:00Z")
+    private val game = SqliteGameData(testDatabase())
 
     /** Invented history: the same changes for any period, remembering the period it was asked for. */
     private class InventedHistory(private val began: Instant, private val changes: List<SkillChange>) : HistoryReader {
@@ -33,7 +27,7 @@ class HistoryGainsTest {
     }
 
     private val history = InventedHistory(
-        began,
+        Instant.parse("2026-01-01T08:00:00Z"),
         listOf(
             SkillChange(3, Skill.MINING, start = SkillValue(0, 1), end = SkillValue(400, 2)),
             SkillChange(1, Skill.WOODCUT, start = SkillValue(4000, 10), end = SkillValue(8000, 16)),
@@ -44,8 +38,7 @@ class HistoryGainsTest {
     )
 
     @Test
-    fun `lists gains most experience first, with names, as players see experience`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy), history = history) }
+    fun `lists gains most experience first, with names, as players see experience`() = adminTest(game, history = history) {
         assertEquals(
             """{"from":"2026-01-01T09:00:00Z","to":"2026-01-01T10:00:00Z","recordedSince":"2026-01-01T08:00:00Z","gains":[""" +
                 """{"playerId":1,"name":"Bramblewick","skill":"woodcut","skillName":"Woodcutting","experienceGained":1000,"levelsGained":6,"experience":2000,"level":16},""" +
@@ -58,11 +51,8 @@ class HistoryGainsTest {
     }
 
     @Test
-    fun `narrows to one player or one skill`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy), history = history) }
-        val player = Regex(""""playerId":(\d+)""")
-        suspend fun players(query: String) =
-            player.findAll(client.get("/api/history/gains?from=2026-01-01T09:00:00Z&$query").bodyAsText()).map { it.groupValues[1].toInt() }.toList()
+    fun `narrows to one player or one skill`() = adminTest(game, history = history) {
+        suspend fun players(query: String) = getJson("/api/history/gains?from=2026-01-01T09:00:00Z&$query")["gains"].ints("playerId")
 
         assertEquals(listOf(1, 2), players("skill=woodcut"))
         assertEquals(listOf(3), players("player=3"))
@@ -70,30 +60,26 @@ class HistoryGainsTest {
     }
 
     @Test
-    fun `the period's end is now if left out`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy), history = history) }
+    fun `the period's end is now if left out`() = adminTest(game, history = history) {
         client.get("/api/history/gains?from=2026-01-01T09:00:00Z")
         val (_, to) = history.askedFor!!
         assertTrue(to > Instant.parse("2026-01-01T09:00:00Z"), "to was $to")
     }
 
     @Test
-    fun `refuses a period or skill it can't read`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy), history = history) }
+    fun `refuses a period or skill it can't read`() = adminTest(game, history = history) {
         for (query in listOf("", "from=yesterday", "from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z", "from=2026-01-01T00:00:00Z&to=soon", "from=2026-01-01T00:00:00Z&skill=juggling")) {
             assertEquals(HttpStatusCode.BadRequest, client.get("/api/history/gains?$query").status, query)
         }
     }
 
     @Test
-    fun `waits for the first copy`() = testApplication {
-        application { adminModule(lastCopy = { null }, gameData = SqliteGameData(copy), history = history) }
+    fun `waits for the first copy`() = adminTest(game, copied = false, history = history) {
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/api/history/gains?from=2026-01-01T00:00:00Z").status)
     }
 
     @Test
-    fun `with nothing recorded there's no start and no gains`() = testApplication {
-        application { adminModule(lastCopy = { copied }, gameData = SqliteGameData(copy)) }
+    fun `with nothing recorded there's no start and no gains`() = adminTest(game) {
         assertEquals(
             """{"from":"2026-01-01T00:00:00Z","to":"2026-01-02T00:00:00Z","recordedSince":null,"gains":[]}""",
             client.get("/api/history/gains?from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z").bodyAsText(),
