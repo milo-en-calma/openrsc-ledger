@@ -68,7 +68,7 @@ fun main(args: Array<String>) {
     val liveDatabase = orExit { server.database() }
     val copier = DatabaseCopier(liveDatabase, config.dataDir.resolve("server-copy.db"))
     val gameData = SqliteGameData(copier.copy, equipmentTab = server.equipmentTab)
-    val history = HistoryStore(config.dataDir.resolve("history.db"))
+    val history = orExit { HistoryStore(config.dataDir.resolve("history.db")) }
     var missingStats = emptyList<Int>()
     // Each copy's changes are stamped with the server's save time, not the copy's.
     val copyLoop = DatabaseCopyLoop(liveDatabase, copier, config.copy) { copy ->

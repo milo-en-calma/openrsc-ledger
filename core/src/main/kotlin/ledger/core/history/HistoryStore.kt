@@ -19,8 +19,12 @@ import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.slf4j.LoggerFactory
+import java.io.IOException
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.sql.SQLException
 import kotlin.time.Instant
 
 /**
@@ -48,14 +52,31 @@ internal object SkillHistory : Table("skill_history") {
  * The ledger's own record of how every player's skills changed over time, kept in [file],
  * a SQLite database of its own. The server keeps only the present, so this is the only
  * place the past survives. Nothing here ever writes to the server's database.
+ *
+ * A [file] that can't be used (its folder is a file or can't be written, or it isn't a
+ * SQLite database) is refused with an [IllegalArgumentException] naming it.
  */
 class HistoryStore(file: Path) : HistoryReader {
     private val database: Database
 
     init {
-        Files.createDirectories(file.toAbsolutePath().parent)
+        val folder = file.toAbsolutePath().parent
+        try {
+            Files.createDirectories(folder)
+        } catch (e: FileAlreadyExistsException) {
+            throw IllegalArgumentException("Can't make the folder $folder for the history file: ${e.file} is a file, not a folder", e)
+        } catch (e: IOException) {
+            throw IllegalArgumentException("Can't make the folder $folder for the history file: $e", e)
+        }
+        // SQLite's own error for a file that isn't a database is lost on the way ("connection closed").
+        require(!isNonEmptyFile(file) || hasSqliteHeader(file)) { "The history file $file isn't a SQLite database" }
+
         database = Database.connect("jdbc:sqlite:$file", driver = "org.sqlite.JDBC")
-        transaction(database) { SchemaUtils.create(SkillHistory) }
+        try {
+            transaction(database) { SchemaUtils.create(SkillHistory) }
+        } catch (e: SQLException) {
+            throw IllegalArgumentException("Can't open or create the history file $file: ${e.message}", e)
+        }
     }
 
     /**
@@ -65,6 +86,11 @@ class HistoryStore(file: Path) : HistoryReader {
      * It compares with what's recorded rather than with the previous copy, so changes
      * made while the ledger was stopped, or at a copy whose recording failed, are caught
      * at the next one.
+     *
+     * Changes stamped at or before the newest recording aren't recorded, so history is never
+     * written out of order; a warning says so. That happens when the server's database file
+     * goes back in time, such as one restored from a backup that kept its old time. It heals
+     * itself: the server's next save is stamped later, and records whatever still differs.
      */
     fun record(at: Instant, current: List<PlayerSkills>): Int = transaction(database) {
         val newest = newestValues()
@@ -72,6 +98,18 @@ class HistoryStore(file: Path) : HistoryReader {
             player.skills.filter { (skill, value) -> newest[player.playerId to skill] != value }
                 .map { (skill, value) -> Triple(player.playerId, skill, value) }
         }
+        if (changes.isEmpty()) { return@transaction 0 }
+
+        val newestTime = newestRecordedAt()
+        if (newestTime != null && at <= newestTime) {
+            log.warn(
+                "The server's database was saved at {}, not after the newest recording at {}, so its {} skill changes weren't recorded; " +
+                    "the server's next save will record whatever still differs",
+                at, newestTime, changes.size,
+            )
+            return@transaction 0
+        }
+
         SkillHistory.batchInsert(changes, shouldReturnGeneratedValues = false) { (playerId, skill, value) ->
             this[SkillHistory.playerId] = playerId
             this[SkillHistory.skill] = skill.column
@@ -96,6 +134,12 @@ class HistoryStore(file: Path) : HistoryReader {
     override fun recordedSince(): Instant? = transaction(database) {
         val oldest = SkillHistory.recordedAt.min()
         SkillHistory.select(oldest).single()[oldest]?.let { Instant.fromEpochMilliseconds(it) }
+    }
+
+    /** When the newest recorded value was saved, or null if nothing is recorded yet. Call inside a transaction. */
+    private fun newestRecordedAt(): Instant? {
+        val newest = SkillHistory.recordedAt.max()
+        return SkillHistory.select(newest).single()[newest]?.let { Instant.fromEpochMilliseconds(it) }
     }
 
     override fun changes(from: Instant, to: Instant): List<SkillChange> = transaction(database) {
@@ -133,5 +177,17 @@ class HistoryStore(file: Path) : HistoryReader {
 
     private companion object {
         val skillsByColumn = Skill.entries.associateBy { it.column }
+        val log = LoggerFactory.getLogger(HistoryStore::class.java)
+
+        /** The first 16 bytes of every SQLite database file. */
+        val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
+
+        fun isNonEmptyFile(file: Path): Boolean = Files.isRegularFile(file) && Files.size(file) > 0
+
+        fun hasSqliteHeader(file: Path): Boolean = try {
+            Files.newInputStream(file).use { it.readNBytes(SQLITE_HEADER.size) }.contentEquals(SQLITE_HEADER)
+        } catch (e: IOException) {
+            throw IllegalArgumentException("Can't read the history file $file: $e", e)
+        }
     }
 }

@@ -7,8 +7,13 @@ import ledger.core.game.SkillValue
 import ledger.core.game.SqliteGameData
 import java.nio.file.Files
 import java.sql.DriverManager
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -205,6 +210,148 @@ class HistoryStoreTest {
             listOf(SkillChange(1, Skill.WOODCUT, start = SkillValue(4000, 10), end = SkillValue(8000, 16))),
             history.changes(at + 5.minutes, at + 10_000.minutes),
         )
+    }
+
+    @Test
+    fun `a period ending before it starts has no changes`() {
+        history.record(at, listOf(player(1)))
+        history.record(at + 10.minutes, listOf(player(1, Skill.MINING to SkillValue(400, 2))))
+        assertEquals(emptyList(), history.changes(at + 20.minutes, at - 10.minutes))
+    }
+
+    @Test
+    fun `recording nobody writes nothing and changes nothing`() {
+        history.record(at, listOf(player(1)))
+        assertEquals(0, history.record(at + 1.minutes, emptyList()))
+        assertEquals(at, history.recordedSince())
+        assertEquals(Skill.entries.size, history.latest().size)
+    }
+
+    @Test
+    fun `a player no longer in the game keeps their history and gets no new rows`() {
+        history.record(at, listOf(player(1, Skill.MINING to SkillValue(400, 2)), player(2)))
+        assertEquals(0, history.record(at + 10.minutes, listOf(player(2))))
+        assertEquals(listOf(at to SkillValue(400, 2)), history.values(1, Skill.MINING))
+        assertEquals(SkillValue(400, 2), history.latest()[1 to Skill.MINING])
+    }
+
+    @Test
+    fun `a player or skill never recorded has no values`() {
+        history.record(at, listOf(player(1)))
+        assertEquals(emptyList(), history.values(42, Skill.MINING))
+        assertEquals(listOf(at to SkillValue(0, 1)), history.values(1, Skill.MINING))
+    }
+
+    @Test
+    fun `values come back oldest first, and going back to an earlier value is a change`() {
+        history.record(at, listOf(player(1, Skill.FISHING to SkillValue(100, 1))))
+        history.record(at + 10.minutes, listOf(player(1, Skill.FISHING to SkillValue(200, 2))))
+        history.record(at + 20.minutes, listOf(player(1, Skill.FISHING to SkillValue(100, 1))))
+        assertEquals(
+            listOf(at to SkillValue(100, 1), at + 10.minutes to SkillValue(200, 2), at + 20.minutes to SkillValue(100, 1)),
+            history.values(1, Skill.FISHING),
+        )
+        // Back to an earlier value is still a change from the newest.
+        assertEquals(SkillValue(100, 1), history.latest()[1 to Skill.FISHING])
+    }
+
+    @Test
+    fun `times keep their milliseconds and lose anything finer`() {
+        val precise = Instant.parse("2026-01-01T09:20:00.123456789Z")
+        history.record(precise, listOf(player(1)))
+        assertEquals(Instant.parse("2026-01-01T09:20:00.123Z"), history.recordedSince())
+    }
+
+    @Test
+    fun `pages can read while a recording is written`() {
+        val players = (1..300).map { player(it) }
+        history.record(at, players)
+        val errors = ConcurrentLinkedQueue<Throwable>()
+        val writing = AtomicBoolean(true)
+        val readers = (1..4).map {
+            thread {
+                while (writing.get()) {
+                    runCatching { history.changes(at, at + 60.minutes); history.recordedSince() }.onFailure { errors.add(it) }
+                }
+            }
+        }
+        repeat(10) { round ->
+            val written = history.record(at + (round + 1).minutes, players.map { player(it.playerId, Skill.MINING to SkillValue(round + 1, 1)) })
+            assertEquals(players.size, written)
+        }
+        writing.set(false)
+        readers.forEach { it.join() }
+        assertEquals(emptyList(), errors.toList())
+    }
+
+    @Test
+    fun `changes stamped before the newest recording aren't recorded, and the next later save records them`() {
+        history.record(at, listOf(player(1)))
+        history.record(at + 10.minutes, listOf(player(1, Skill.MINING to SkillValue(400, 2))))
+
+        // As if the server's database were restored from a backup that kept its old time.
+        assertEquals(0, history.record(at + 5.minutes, listOf(player(1, Skill.MINING to SkillValue(800, 3)))))
+        assertEquals(listOf(at to SkillValue(0, 1), at + 10.minutes to SkillValue(400, 2)), history.values(1, Skill.MINING))
+        assertEquals(SkillValue(400, 2), history.latest()[1 to Skill.MINING])
+
+        assertEquals(1, history.record(at + 20.minutes, listOf(player(1, Skill.MINING to SkillValue(800, 3)))))
+        assertEquals(SkillValue(800, 3), history.values(1, Skill.MINING).last().second)
+    }
+
+    @Test
+    fun `a change stamped at the newest recording's own time isn't recorded, and doesn't fail`() {
+        history.record(at, listOf(player(1)))
+        assertEquals(0, history.record(at, listOf(player(1, Skill.MINING to SkillValue(400, 2)))))
+        assertEquals(listOf(at to SkillValue(0, 1)), history.values(1, Skill.MINING))
+    }
+
+    @Test
+    fun `unchanged values at the newest recording's time write nothing, as after the ledger restarts`() {
+        history.record(at, gameData.allSkills())
+        // The first copy after a restart carries the same save time, with nothing new.
+        assertEquals(0, HistoryStore(dir.resolve("data/history.db")).record(at, gameData.allSkills()))
+        // Nothing changed is never refused, whatever its time.
+        assertEquals(0, history.record(at - 10.minutes, gameData.allSkills()))
+    }
+
+    @Test
+    fun `a data folder that is a file is refused, naming it`() {
+        val notAFolder = Files.writeString(dir.resolve("data-file"), "x")
+        val error = assertFailsWith<IllegalArgumentException> { HistoryStore(notAFolder.resolve("history.db")) }
+        assertEquals("Can't make the folder $notAFolder for the history file: $notAFolder is a file, not a folder", error.message)
+    }
+
+    @Test
+    fun `a history file that isn't a SQLite database is refused, naming it`() {
+        val text = Files.writeString(dir.resolve("history.db"), "notes, not a database")
+        val error = assertFailsWith<IllegalArgumentException> { HistoryStore(text) }
+        assertEquals("The history file $text isn't a SQLite database", error.message)
+        assertEquals("notes, not a database", Files.readString(text))
+    }
+
+    @Test
+    fun `an empty history file is a new history`() {
+        val empty = Files.createFile(dir.resolve("empty.db"))
+        assertEquals(Skill.entries.size, HistoryStore(empty).record(at, listOf(player(1))))
+    }
+
+    @Test
+    fun `a history file in a folder that can't be written is refused, naming it`() {
+        val locked = Files.createDirectories(dir.resolve("locked"))
+        locked.toFile().setWritable(false)
+        try {
+            val error = assertFailsWith<IllegalArgumentException> { HistoryStore(locked.resolve("history.db")) }
+            assertTrue(error.message!!.startsWith("Can't open or create the history file ${locked.resolve("history.db")}: "), error.message)
+        } finally {
+            locked.toFile().setWritable(true)
+        }
+    }
+
+    @Test
+    fun `the history file's folder is made if it's missing`() {
+        val file = dir.resolve("deeper/still/history.db")
+        HistoryStore(file).record(at, listOf(player(1)))
+        assertEquals(true, Files.isRegularFile(file))
     }
 
     private fun sql(statement: String) {
