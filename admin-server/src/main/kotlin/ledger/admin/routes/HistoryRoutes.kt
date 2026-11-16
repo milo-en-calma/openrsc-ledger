@@ -43,6 +43,7 @@ data class SkillGainRow(
 
 const val BAD_PERIOD = "Give `from` (and optionally `to`) as ISO-8601 times, such as 2026-01-01T00:00:00Z, with `from` no later than `to`."
 const val NO_SUCH_SKILL = "There's no skill by that name."
+const val BAD_PLAYER = "Give `player` as a player's id, a whole number."
 
 private val skillsByKey = Skill.entries.associateBy { it.column }
 
@@ -51,7 +52,8 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
     get("/api/history/gains", {
         description = "How much experience each player gained in each skill over a period, from the ledger's recorded history. " +
             "A gain runs from the newest value recorded at or before `from` to the newest at or before `to`; a player first " +
-            "recorded inside the period counts from that first value, not from zero."
+            "recorded inside the period counts from that first value, not from zero. A skill whose experience went down " +
+            "(only an admin command can do that) isn't a gain, and is left out."
         request {
             queryParameter<String>("from") { description = "The period's start, an ISO-8601 time such as 2026-01-01T00:00:00Z." }
             queryParameter<String>("to") {
@@ -73,7 +75,7 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
                 body<GainsReport>()
             }
             code(HttpStatusCode.BadRequest) {
-                description = "The period or the skill couldn't be read."
+                description = "The period, the player or the skill couldn't be read."
                 body<NoData>()
             }
             code(HttpStatusCode.ServiceUnavailable) {
@@ -96,7 +98,13 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
             call.respond(HttpStatusCode.BadRequest, NoData(NO_SUCH_SKILL))
             return@get
         }
-        val playerId = parameters["player"]?.toIntOrNull()
+        // Unreadable, `player` is an error like a bad skill, so a typo can't pass for everyone's gains.
+        val playerKey = parameters["player"]
+        val playerId = playerKey?.toIntOrNull()
+        if (playerKey != null && playerId == null) {
+            call.respond(HttpStatusCode.BadRequest, NoData(BAD_PLAYER))
+            return@get
+        }
         if (lastCopy() == null) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
@@ -105,6 +113,8 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
         val names = gameData.players().associate { it.id to it.name }
         val gains = history.changes(from, to)
             .filter { (skill == null || it.skill == skill) && (playerId == null || it.playerId == playerId) }
+            // A drop isn't a gain; it stays in the history, but a minus number on a board reads as a bug.
+            .filter { it.end.experience >= it.start.experience }
             .sortedWith(compareByDescending<SkillChange> { it.experienceGained }.thenBy { it.playerId }.thenBy { it.skill })
             .map {
                 SkillGainRow(

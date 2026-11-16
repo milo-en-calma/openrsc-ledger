@@ -103,6 +103,51 @@ class HistoryStoreTest {
     }
 
     @Test
+    fun `with several players and skills, a change stamped on the start counts as before and one on the end as within`() {
+        val start = at + 10.minutes
+        val end = at + 20.minutes
+        history.record(at, listOf(player(1), player(2)))
+        // Stamped exactly on the start: the period's starting values, not gains in it.
+        history.record(start, listOf(player(1, Skill.WOODCUT to SkillValue(400, 2)), player(2, Skill.FISHING to SkillValue(800, 3))))
+        // Stamped exactly on the end: gains in the period, for two skills of one player and one of the other.
+        history.record(
+            end,
+            listOf(
+                player(1, Skill.WOODCUT to SkillValue(1200, 4), Skill.MINING to SkillValue(400, 2)),
+                player(2, Skill.FISHING to SkillValue(1600, 5)),
+            ),
+        )
+        // After the end: none of this may show.
+        history.record(end + 1.minutes, listOf(player(1, Skill.WOODCUT to SkillValue(9000, 17), Skill.MINING to SkillValue(400, 2)), player(2, Skill.FISHING to SkillValue(1600, 5))))
+
+        assertEquals(
+            setOf(
+                SkillChange(1, Skill.WOODCUT, start = SkillValue(400, 2), end = SkillValue(1200, 4)),
+                SkillChange(1, Skill.MINING, start = SkillValue(0, 1), end = SkillValue(400, 2)),
+                SkillChange(2, Skill.FISHING, start = SkillValue(800, 3), end = SkillValue(1600, 5)),
+            ),
+            history.changes(start, end).toSet(),
+        )
+        assertEquals(3, history.changes(start, end).size)
+    }
+
+    @Test
+    fun `a period of no length has no changes, even on a recorded change`() {
+        history.record(at, listOf(player(1)))
+        history.record(at + 10.minutes, listOf(player(1, Skill.MINING to SkillValue(400, 2))))
+        assertEquals(emptyList(), history.changes(at + 10.minutes, at + 10.minutes))
+    }
+
+    @Test
+    fun `a value that went down is still a change here, and the gains list decides what to show`() {
+        history.record(at, listOf(player(1, Skill.WOODCUT to SkillValue(8000, 16))))
+        history.record(at + 10.minutes, listOf(player(1, Skill.WOODCUT to SkillValue(6000, 14))))
+        val change = history.changes(at, at + 10.minutes).single()
+        assertEquals(-500, change.experienceGained)
+        assertEquals(-2, change.levelsGained)
+    }
+
+    @Test
     fun `a player first recorded inside the period counts from that first value, not from zero`() {
         history.record(at, listOf(player(1)))
         // Recording of player 2 begins at +10 with experience they already had.

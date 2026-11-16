@@ -301,7 +301,7 @@
     "/api/history/gains" : {
       "get" : {
         "tags" : [ ],
-        "description" : "How much experience each player gained in each skill over a period, from the ledger's recorded history. A gain runs from the newest value recorded at or before `from` to the newest at or before `to`; a player first recorded inside the period counts from that first value, not from zero.",
+        "description" : "How much experience each player gained in each skill over a period, from the ledger's recorded history. A gain runs from the newest value recorded at or before `from` to the newest at or before `to`; a player first recorded inside the period counts from that first value, not from zero. A skill whose experience went down (only an admin command can do that) isn't a gain, and is left out.",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
@@ -357,7 +357,7 @@
             }
           },
           "400" : {
-            "description" : "The period or the skill couldn't be read.",
+            "description" : "The period, the player or the skill couldn't be read.",
             "headers" : { },
             "content" : {
               "application/json" : {

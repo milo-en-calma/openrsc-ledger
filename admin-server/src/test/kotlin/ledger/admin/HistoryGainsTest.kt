@@ -67,9 +67,58 @@ class HistoryGainsTest {
     }
 
     @Test
-    fun `refuses a period or skill it can't read`() = adminTest(game, history = history) {
-        for (query in listOf("", "from=yesterday", "from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z", "from=2026-01-01T00:00:00Z&to=soon", "from=2026-01-01T00:00:00Z&skill=juggling")) {
+    fun `refuses a period, player or skill it can't read`() = adminTest(game, history = history) {
+        val unreadable = listOf(
+            "",
+            "from=yesterday",
+            "from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z",
+            "from=2026-01-01T00:00:00Z&to=soon",
+            "from=2026-01-01T00:00:00Z&skill=juggling",
+            "from=2026-01-01T00:00:00Z&player=Bramblewick",
+            "from=2026-01-01T00:00:00Z&player=",
+            "from=2026-01-01T00:00:00Z&player=1.5",
+        )
+        for (query in unreadable) {
             assertEquals(HttpStatusCode.BadRequest, client.get("/api/history/gains?$query").status, query)
+        }
+    }
+
+    @Test
+    fun `a skill whose experience went down is left out, not shown as a negative gain`() {
+        val dropped = InventedHistory(
+            Instant.parse("2026-01-01T08:00:00Z"),
+            listOf(
+                SkillChange(1, Skill.WOODCUT, start = SkillValue(8000, 16), end = SkillValue(6000, 14)),
+                SkillChange(1, Skill.MINING, start = SkillValue(0, 1), end = SkillValue(400, 2)),
+            ),
+        )
+        adminTest(game, history = dropped) {
+            val gains = getJson("/api/history/gains?from=2026-01-01T09:00:00Z")["gains"]
+            assertEquals(listOf("mining"), gains.strings("skill"))
+        }
+    }
+
+    @Test
+    fun `a player id nobody has gives no gains, not an error`() = adminTest(game, history = history) {
+        assertEquals(emptyList(), getJson("/api/history/gains?from=2026-01-01T09:00:00Z&player=404")["gains"].ints("playerId"))
+    }
+
+    @Test
+    fun `equal gains are listed by player id, then in the game's skill order`() {
+        val tied = InventedHistory(
+            Instant.parse("2026-01-01T08:00:00Z"),
+            listOf(
+                SkillChange(2, Skill.MINING, start = SkillValue(0, 1), end = SkillValue(400, 2)),
+                SkillChange(2, Skill.WOODCUT, start = SkillValue(0, 1), end = SkillValue(400, 2)),
+                SkillChange(1, Skill.MINING, start = SkillValue(0, 1), end = SkillValue(400, 2)),
+                SkillChange(3, Skill.ATTACK, start = SkillValue(0, 1), end = SkillValue(800, 3)),
+            ),
+        )
+        adminTest(game, history = tied) {
+            val gains = getJson("/api/history/gains?from=2026-01-01T09:00:00Z")["gains"]
+            // Player 3 gained most; then the three equal gains: player 1, then player 2's Woodcutting before its Mining.
+            assertEquals(listOf(3, 1, 2, 2), gains.ints("playerId"))
+            assertEquals(listOf("attack", "mining", "woodcut", "mining"), gains.strings("skill"))
         }
     }
 
