@@ -76,12 +76,35 @@ tasks.named<JavaExec>("run") {
 // The tests that need the real built frontend; they run only in webTest, below.
 val builtWebTests = "ledger.admin.BuiltWebTest"
 
+// The timing report over a large invented world; it runs only in timingReport, below.
+val timingReport = "ledger.admin.TimingReport"
+
 tasks.test {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     // `./gradlew :admin-server:test -PupdateOpenApi` rewrites openapi.json instead of checking it.
     systemProperty("ledger.updateOpenApi", providers.gradleProperty("updateOpenApi").isPresent)
-    filter { excludeTestsMatching(builtWebTests) }
+    filter {
+        excludeTestsMatching(builtWebTests)
+        excludeTestsMatching(timingReport)
+    }
+}
+
+// How long the ledger's work takes over a large invented world, printed. Reports only, and not
+// part of `check`. `-PtimingRows=100000,1000000,10000000` picks history.db's sizes.
+tasks.register<Test>("timingReport") {
+    description = "Times the ledger's copy, recording and API routes over a large invented world, and prints SQLite's query plans."
+    group = "verification"
+    useJUnitPlatform()
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    maxHeapSize = "2g"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter { includeTestsMatching(timingReport) }
+    systemProperty("ledger.timingRows", providers.gradleProperty("timingRows").getOrElse("100000,1000000"))
+    testLogging { showStandardStreams = true }
+    // A report of this run's times: never taken from an earlier run.
+    outputs.upToDateWhen { false }
 }
 
 // The built frontend as the installed app serves it, from the same ledger-web jar. Its own task,

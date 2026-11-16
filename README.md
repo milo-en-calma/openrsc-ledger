@@ -231,6 +231,13 @@ Run the whole suite with `./gradlew check`. It includes `webTest`, which tests t
 server with the real built frontend; `./gradlew test` leaves that out, so it doesn't wait
 on the frontend's build.
 
+`./gradlew :admin-server:timingReport` times the ledger over a large invented world (3,000
+players with full inventories and banks, and a year of skill history) and prints each step's
+time, SQLite's plan for each query and the history file's size per row. It reports only, and
+isn't part of `check`. It runs 100,000 and 1,000,000 rows of history, about half a minute;
+`-PtimingRows=100000,1000000,10000000` picks other sizes. Everything it writes goes in a
+temporary folder that's deleted at the end.
+
 ### The API spec and the frontend's types
 
 The server describes its routes and the JSON each returns in an OpenAPI spec, generated
