@@ -38,6 +38,18 @@ class OpenRscServer private constructor(
      */
     val defaultLog: Path = serverDir.resolve("logs").resolve("default.log")
 
+    /**
+     * Whether the server keeps worn items in an equipment tab (`want_equipment_tab`), in its
+     * own `equipped` table, rather than in the inventory marked worn. Off unless set, as in
+     * the server, which also refuses any value but `true` or `false` in any case.
+     */
+    val equipmentTab: Boolean = settings[EQUIPMENT_TAB]?.let { value ->
+        require(value.equals("true", ignoreCase = true) || value.equals("false", ignoreCase = true)) {
+            "The server's $EQUIPMENT_TAB is \"$value\"; the server accepts only true or false"
+        }
+        value.toBoolean()
+    } ?: false
+
     /** The live SQLite database: `server/inc/sqlite/<db_name>.db`. */
     fun database(): Path {
         require(isSqlite(settings["db_type"])) {
@@ -54,6 +66,7 @@ class OpenRscServer private constructor(
         const val DEFAULT_GAME_PORT = 43594
         const val DEFAULT_SERVER_NAME = "Runescape"
         const val DEFAULT_WORLD_NUMBER = 1
+        private const val EQUIPMENT_TAB = "want_equipment_tab"
 
         /** A world's name as the server's log files spell it (`LogUtil.formatWorldName`). */
         internal fun worldLogName(serverName: String): String = serverName.lowercase().trim().replace(" ", "_")

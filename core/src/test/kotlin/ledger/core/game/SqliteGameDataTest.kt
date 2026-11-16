@@ -137,10 +137,49 @@ class SqliteGameDataTest {
     }
 
     @Test
-    fun `a player with nothing has an empty inventory and bank`() {
-        val player = assertNotNull(gameData.player(2))
-        assertEquals(emptyList(), player.inventory)
-        assertEquals(emptyList(), player.bank)
+    fun `without an equipment tab, equipment is the inventory's worn items, and the equipped table is ignored`() {
+        assertEquals(
+            listOf(
+                HeldItem(slot = 0, itemId = 0, amount = 1, noted = false, worn = true),
+                HeldItem(slot = 1, itemId = 4, amount = 1, noted = false, worn = true),
+            ),
+            assertNotNull(gameData.player(1)).equipment,
+        )
+        // Oakhollow's rows in `equipped` count only with the tab on.
+        assertEquals(emptyList(), assertNotNull(gameData.player(3)).equipment)
+    }
+
+    @Test
+    fun `with an equipment tab, equipment comes from the equipped table, every item worn, in the order stored`() {
+        val tabbed = SqliteGameData(file, equipmentTab = true)
+        val oakhollow = assertNotNull(tabbed.player(3))
+        assertEquals(
+            listOf(
+                HeldItem(slot = 0, itemId = 15, amount = 1, noted = false, worn = true),
+                // Its row isn't marked worn, but it's in `equipped`.
+                HeldItem(slot = 1, itemId = 66, amount = 1, noted = false, worn = true),
+            ),
+            oakhollow.equipment,
+        )
+        assertEquals(listOf(HeldItem(slot = 0, itemId = 20, amount = 1, noted = false, worn = false)), oakhollow.inventory)
+    }
+
+    @Test
+    fun `with an equipment tab, nothing in the inventory is worn, as the server reads it`() {
+        val bramblewick = assertNotNull(SqliteGameData(file, equipmentTab = true).player(1))
+        assertEquals(emptyList(), bramblewick.equipment)
+        assertEquals(listOf(0, 4, 10, 156), bramblewick.inventory.map { it.itemId })
+        assertEquals(listOf(false), bramblewick.inventory.map { it.worn }.distinct())
+    }
+
+    @Test
+    fun `a player with nothing has an empty inventory, bank and equipment, with or without an equipment tab`() {
+        listOf(gameData, SqliteGameData(file, equipmentTab = true)).forEach { data ->
+            val player = assertNotNull(data.player(2))
+            assertEquals(emptyList(), player.equipment)
+            assertEquals(emptyList(), player.inventory)
+            assertEquals(emptyList(), player.bank)
+        }
     }
 
     @Test
@@ -158,6 +197,25 @@ class SqliteGameDataTest {
                 HoldingRecord(3, Place.INVENTORY, 20, 1),
             ),
             gameData.allHeldItems().sortedWith(compareBy({ it.playerId }, { it.place }, { it.itemId })),
+        )
+    }
+
+    @Test
+    fun `with an equipment tab, every held item includes what's equipped, counted as carried`() {
+        val tabbed = SqliteGameData(file, equipmentTab = true)
+        val oakhollow = tabbed.allHeldItems().filter { it.playerId == 3 }.sortedBy { it.itemId }
+        assertEquals(
+            listOf(
+                HoldingRecord(3, Place.INVENTORY, 15, 1),
+                HoldingRecord(3, Place.INVENTORY, 20, 1),
+                HoldingRecord(3, Place.INVENTORY, 66, 1),
+            ),
+            oakhollow,
+        )
+        // Everyone else's holdings are the same either way.
+        assertEquals(
+            gameData.allHeldItems().filter { it.playerId != 3 }.sortedWith(compareBy({ it.playerId }, { it.place }, { it.itemId })),
+            tabbed.allHeldItems().filter { it.playerId != 3 }.sortedWith(compareBy({ it.playerId }, { it.place }, { it.itemId })),
         )
     }
 

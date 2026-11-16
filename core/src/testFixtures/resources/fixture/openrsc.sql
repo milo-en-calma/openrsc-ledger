@@ -145,6 +145,13 @@ CREATE TABLE IF NOT EXISTS `bank`
     PRIMARY KEY (`playerId`, `itemId`, `slot`)
 );
 
+-- Made by the server's add_equipment_tab script, used only with want_equipment_tab on.
+CREATE TABLE IF NOT EXISTS `equipped`
+(
+    `playerID` int(10) NOT NULL,
+    `itemID`   int(10) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS `itemstatuses`
 (
     `itemID`     INTEGER    NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -181,6 +188,10 @@ VALUES (1, 3, 2),
 -- item's type (catalogID), amount, and whether it's noted or worn. Bramblewick wears an
 -- Iron Mace and a Wooden Shield and carries coins and a pickaxe; their bank holds coins,
 -- noted logs and lobsters. Tansy Moss has nothing.
+--
+-- Oakhollow's Leather Armour and Bronze Short Sword are in `equipped`, as on a server
+-- with its equipment tab on, so they count only when the tab is; the sword's row isn't
+-- marked worn, as the server's SQLite save can leave it.
 INSERT INTO `itemstatuses` (`itemID`, `catalogID`, `amount`, `noted`, `wielded`)
 VALUES (101, 0, 1, 0, 1),
        (102, 4, 1, 0, 1),
@@ -189,7 +200,9 @@ VALUES (101, 0, 1, 0, 1),
        (201, 10, 50000, 0, 0),
        (202, 14, 120, 1, 0),
        (203, 373, 1, 0, 0),
-       (301, 20, 1, 0, 0);
+       (301, 20, 1, 0, 0),
+       (302, 15, 1, 0, 1),
+       (303, 66, 1, 0, 0);
 INSERT INTO `invitems` (`playerID`, `itemID`, `slot`)
 VALUES (1, 103, 2),
        (1, 101, 0),
@@ -200,3 +213,6 @@ INSERT INTO `bank` (`playerID`, `itemID`, `slot`)
 VALUES (1, 202, 1),
        (1, 201, 0),
        (1, 203, 2);
+INSERT INTO `equipped` (`playerID`, `itemID`)
+VALUES (3, 303),
+       (3, 302);

@@ -95,6 +95,16 @@ config files the server reads, in the same order: `server/connections.conf`, the
 `server/local.conf` if it exists, otherwise the config of the world the server is launched
 with (the `openrsc.world` setting). MySQL servers aren't supported yet.
 
+**It finds worn items where the server keeps them.** The server's `want_equipment_tab`
+setting decides that, read from the same files in the same order as `db_name`, and off
+unless set. Off (OpenRSC's default), worn items stay in the inventory, marked worn, and
+the player page lists them under both. On, the server keeps them apart in an `equipped`
+table (made by its `add_equipment_tab` script), and ignores any inventory item marked
+worn; the ledger reads them the same way. That table keeps no slots, so equipment is then
+listed in the order the server stored it. Either way, the economy pages count worn items
+as carried. Like the server, the ledger won't start if the setting is anything but `true`
+or `false`.
+
 **It reads a copy, never the live file.** The server's database uses SQLite's `delete`
 journal mode, in which anything reading the file keeps the server from saving until the
 read ends. So the ledger copies the database with SQLite's backup function, a few pages at

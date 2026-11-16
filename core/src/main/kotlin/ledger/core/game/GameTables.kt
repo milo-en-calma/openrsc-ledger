@@ -73,6 +73,18 @@ internal open class ItemSlotTable(name: String) : Table(name) {
 internal object InvItems : ItemSlotTable("invitems")
 internal object BankItems : ItemSlotTable("bank")
 
+/**
+ * What each player wears, on a server with its equipment tab on (`want_equipment_tab`);
+ * the table exists only there, made by the server's `add_equipment_tab` script. Each row
+ * points at an [ItemStatuses] row. There's no slot: the server places each item by what
+ * kind of item it is.
+ */
+internal object Equipped : Table("equipped") {
+    val playerId = integer("playerID")
+    /** The [ItemStatuses] row; not the item's type. */
+    val itemStatusId = integer("itemID")
+}
+
 /** One held item: what it is, how many, and whether it's noted or worn. */
 internal object ItemStatuses : Table("itemstatuses") {
     val id = integer("itemID")

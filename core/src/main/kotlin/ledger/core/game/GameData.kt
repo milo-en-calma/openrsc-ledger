@@ -20,7 +20,7 @@ interface GameData {
     /** One player's summary, skills, quests and belongings, or null if there's no such player. */
     fun player(id: Int): PlayerDetails?
 
-    /** Every item in every inventory and bank. */
+    /** Every item in every inventory and bank. Worn items count as in the inventory, whether or not the server has an equipment tab. */
     fun allHeldItems(): List<HoldingRecord>
 }
 
@@ -45,7 +45,17 @@ data class PlayerDetails(
     val skills: Map<Skill, SkillStanding>,
     /** Every quest the player has started, by quest number. */
     val quests: List<QuestProgress>,
-    /** What the player carries, by slot. Worn items are here too, marked [HeldItem.worn]. */
+    /**
+     * What the player wears or wields. On a server without an equipment tab these are the
+     * inventory's worn items, with their inventory slots; with one, they're kept apart from
+     * the inventory and have no slot of their own, so they're numbered from 0 in the order
+     * the server stored them.
+     */
+    val equipment: List<HeldItem>,
+    /**
+     * What the player carries, by slot. On a server without an equipment tab, worn items are
+     * here too, marked [HeldItem.worn]; with one, nothing here is worn.
+     */
     val inventory: List<HeldItem>,
     /** What the player has banked, by slot. */
     val bank: List<HeldItem>,
@@ -66,7 +76,7 @@ data class QuestProgress(val questId: Int, val stage: Int) {
     val complete: Boolean get() = stage == QUEST_COMPLETE
 }
 
-/** An item in an inventory or bank slot. */
+/** An item in an inventory, bank or equipment slot. */
 data class HeldItem(
     val slot: Int,
     /** The item's type, the number the game data names. */
@@ -78,7 +88,7 @@ data class HeldItem(
     val worn: Boolean,
 )
 
-/** Where an item is held. */
+/** Where an item is held. Worn items are [INVENTORY]: carried, as the server without an equipment tab keeps them. */
 enum class Place { INVENTORY, BANK }
 
 /** One slot's item, for adding up across the whole world. */

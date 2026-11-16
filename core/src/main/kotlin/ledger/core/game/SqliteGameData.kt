@@ -21,8 +21,12 @@ import kotlin.time.Instant
  * Every read opens a fresh read-only connection. Each new copy is renamed over the last,
  * and a connection keeps reading the file it opened, so a connection held open would go
  * on reading an old copy.
+ *
+ * [equipmentTab] says where worn items are, as the server's `want_equipment_tab` does: off,
+ * in the inventory marked worn; on, in the `equipped` table, and nothing in the inventory
+ * counts as worn, whatever its row says, just as the server reads it.
  */
-class SqliteGameData(file: Path) : GameData {
+class SqliteGameData(file: Path, private val equipmentTab: Boolean = false) : GameData {
     // Exposed sets each connection's read-only flag when a transaction starts, and the
     // SQLite driver refuses to change it once open, so the two must agree: read-only.
     private val database = Database.connect(
@@ -69,6 +73,9 @@ class SqliteGameData(file: Path) : GameData {
             }
             .sortedBy { it.questId }
 
+        val carried = heldItems(InvItems, id)
+        val inventory = if (equipmentTab) carried.map { it.copy(worn = false) } else carried
+
         PlayerDetails(
             summary = row.toPlayerSummary(),
             questPoints = row[Players.questPoints] ?: 0,
@@ -80,18 +87,46 @@ class SqliteGameData(file: Path) : GameData {
                 )
             },
             quests = quests,
-            inventory = heldItems(InvItems, id),
+            equipment = if (equipmentTab) equippedItems(id) else inventory.filter { it.worn },
+            inventory = inventory,
             bank = heldItems(BankItems, id),
         )
     }
 
     override fun allHeldItems(): List<HoldingRecord> = transaction(database) {
-        listOf(InvItems to Place.INVENTORY, BankItems to Place.BANK).flatMap { (table, place) ->
+        val slotted = listOf(InvItems to Place.INVENTORY, BankItems to Place.BANK).flatMap { (table, place) ->
             table.join(ItemStatuses, JoinType.INNER, table.itemStatusId, ItemStatuses.id)
                 .select(table.playerId, ItemStatuses.catalogId, ItemStatuses.amount)
                 .map { row -> HoldingRecord(row[table.playerId], place, row[ItemStatuses.catalogId], row[ItemStatuses.amount]) }
         }
+        if (!equipmentTab) { return@transaction slotted }
+
+        // Worn items are carried, as they are on a server without an equipment tab.
+        slotted + Equipped.join(ItemStatuses, JoinType.INNER, Equipped.itemStatusId, ItemStatuses.id)
+            .select(Equipped.playerId, ItemStatuses.catalogId, ItemStatuses.amount)
+            .map { row -> HoldingRecord(row[Equipped.playerId], Place.INVENTORY, row[ItemStatuses.catalogId], row[ItemStatuses.amount]) }
     }
+
+    /**
+     * What one player wears, from the `equipped` table, numbered from 0 in the order the
+     * server stored the items, since the table has no slots. Call inside a transaction.
+     */
+    private fun equippedItems(playerId: Int): List<HeldItem> =
+        Equipped.join(ItemStatuses, JoinType.INNER, Equipped.itemStatusId, ItemStatuses.id)
+            .selectAll()
+            .where { Equipped.playerId eq playerId }
+            .orderBy(ItemStatuses.id)
+            .mapIndexed { slot, row ->
+                HeldItem(
+                    slot = slot,
+                    itemId = row[ItemStatuses.catalogId],
+                    amount = row[ItemStatuses.amount],
+                    noted = row[ItemStatuses.noted] == 1,
+                    // Everything here is worn. The flag isn't trusted: the server's MySQL save
+                    // sets it, but its SQLite save copies it from the item as it stood.
+                    worn = true,
+                )
+            }
 
     /** The items in one player's slots of [table], by slot. Call inside a transaction. */
     private fun heldItems(table: ItemSlotTable, playerId: Int): List<HeldItem> =

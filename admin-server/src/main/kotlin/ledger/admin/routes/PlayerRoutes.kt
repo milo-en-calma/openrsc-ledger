@@ -36,9 +36,13 @@ data class PlayerPage(
     val skills: List<SkillRow>,
     /** Every quest the player has started, by quest number. */
     val quests: List<QuestRow>,
-    /** What the player is wearing or wielding: the worn items in their inventory. */
+    /**
+     * What the player is wearing or wielding. Without the server's equipment tab, the worn
+     * items in their inventory, with those slots; with it, numbered from 0 in the order the
+     * server stored them.
+     */
     val equipment: List<ItemRow>,
-    /** What the player carries, by slot, worn items included. */
+    /** What the player carries, by slot; worn items too, without the server's equipment tab. */
     val inventory: List<ItemRow>,
     /** What the player has banked, by slot. */
     val bank: List<ItemRow>,
@@ -164,7 +168,7 @@ private fun PlayerDetails.toPage(names: GameNames) = PlayerPage(
         )
     },
     quests = quests.map { QuestRow(id = it.questId, name = names.quest(it.questId), stage = it.stage, complete = it.complete) },
-    equipment = inventory.filter { it.worn }.map { it.toRow(names) },
+    equipment = equipment.map { it.toRow(names) },
     inventory = inventory.map { it.toRow(names) },
     bank = bank.map { it.toRow(names) },
 )

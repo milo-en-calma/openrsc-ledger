@@ -61,4 +61,18 @@ class PlayersTest {
         assertTrue(""""bank":[{"slot":0,"itemId":10,"name":"Coins","amount":50000,"noted":false,"worn":false},""" in body, body)
         assertTrue("""{"slot":1,"itemId":14,"name":"Logs","amount":120,"noted":true,"worn":false}""" in body, body)
     }
+
+    @Test
+    fun `with the server's equipment tab on, a player's equipment comes from what they have equipped`() =
+        adminTest(SqliteGameData(testDatabase(), equipmentTab = true)) {
+            val oakhollow = client.get("/api/players/3").bodyAsText()
+            val armour = """{"slot":0,"itemId":15,"name":"Leather Armour","amount":1,"noted":false,"worn":true}"""
+            val sword = """{"slot":1,"itemId":66,"name":"Bronze Short Sword","amount":1,"noted":false,"worn":true}"""
+            assertTrue(""""equipment":[$armour,$sword]""" in oakhollow, oakhollow)
+            assertTrue(""""inventory":[{"slot":0,"itemId":20,"name":"""" in oakhollow, oakhollow)
+
+            val bramblewick = client.get("/api/players/1").bodyAsText()
+            assertTrue(""""equipment":[]""" in bramblewick, bramblewick)
+            assertTrue(""""worn":true""" !in bramblewick, bramblewick)
+        }
 }

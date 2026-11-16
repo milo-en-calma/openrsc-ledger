@@ -72,6 +72,35 @@ class OpenRscServerTest {
     }
 
     @Test
+    fun `reads the equipment tab setting, off unless set`() {
+        Fixtures.openRscCheckout(dir, mapOf("local.conf" to "\twant_equipment_tab: TRUE # Adds an equipment tab\n"), dbName = "preservation")
+        assertTrue(server("local").equipmentTab)
+        Files.writeString(dir.resolve("server/local.conf"), "\twant_equipment_tab: false\n")
+        assertFalse(server("local").equipmentTab)
+        Files.delete(dir.resolve("server/local.conf"))
+        assertFalse(server("local").equipmentTab)
+    }
+
+    @Test
+    fun `the equipment tab setting comes from local conf over the launched world, as db_name does`() {
+        Fixtures.openRscCheckout(
+            dir,
+            mapOf("local.conf" to "\twant_equipment_tab: false\n", "cabbage.conf" to "\twant_equipment_tab: true\n"),
+            dbName = "preservation",
+        )
+        assertFalse(server("cabbage").equipmentTab)
+        Files.delete(dir.resolve("server/local.conf"))
+        assertTrue(server("cabbage").equipmentTab)
+    }
+
+    @Test
+    fun `refuses an equipment tab setting the server would refuse`() {
+        Fixtures.openRscCheckout(dir, mapOf("local.conf" to "\twant_equipment_tab: yes\n"), dbName = "preservation")
+        val error = assertFailsWith<IllegalArgumentException> { server("local") }
+        assertTrue("want_equipment_tab" in error.message!!, error.message)
+    }
+
+    @Test
     fun `refuses a MySQL server`() {
         Fixtures.openRscCheckout(dir, emptyMap(), dbName = "preservation", connections = "db_type: mysql\n")
         assertFailsWith<IllegalArgumentException> { server("default").database() }
