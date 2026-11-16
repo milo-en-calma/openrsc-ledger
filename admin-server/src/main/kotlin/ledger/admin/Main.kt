@@ -21,16 +21,26 @@ private const val PRINT_LAUNCH_SETTINGS = "--print-launch-settings"
 
 private val log = LoggerFactory.getLogger("ledger.admin")
 
+/** What `ledger-admin` was asked to do: read the config at [configPath], and print the launch settings or serve. */
+data class Arguments(val printLaunchSettings: Boolean, val configPath: Path)
+
 /**
- * Starts the admin console: `ledger-admin [--print-launch-settings] [config file]`. The
- * config file is the argument, else `$LEDGER_CONF`, else `ledger.conf` in the working
- * directory. With `--print-launch-settings` it prints what the launch script needs
- * ([launchSettings]) and exits instead.
+ * Reads `ledger-admin [--print-launch-settings] [config file]`, the flag before or after the
+ * file. The config file is the argument, else [ledgerConf] (`$LEDGER_CONF`), else `ledger.conf`
+ * in the working directory.
+ */
+fun parseArguments(args: List<String>, ledgerConf: String? = System.getenv("LEDGER_CONF")) = Arguments(
+    printLaunchSettings = PRINT_LAUNCH_SETTINGS in args,
+    configPath = Path.of(args.firstOrNull { it != PRINT_LAUNCH_SETTINGS } ?: ledgerConf ?: "ledger.conf"),
+)
+
+/**
+ * Starts the admin console ([parseArguments] says how it's called). With
+ * `--print-launch-settings` it prints what the launch script needs ([launchSettings]) and
+ * exits instead.
  */
 fun main(args: Array<String>) {
-    val printLaunchSettings = PRINT_LAUNCH_SETTINGS in args
-    val configArg = args.firstOrNull { it != PRINT_LAUNCH_SETTINGS }
-    val configPath = Path.of(configArg ?: System.getenv("LEDGER_CONF") ?: "ledger.conf")
+    val (printLaunchSettings, configPath) = parseArguments(args.toList())
 
     val (config, server) = orExit {
         val config = LedgerConfig.load(configPath)

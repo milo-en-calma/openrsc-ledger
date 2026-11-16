@@ -4,13 +4,16 @@ import io.github.smiley4.ktoropenapi.OpenApi
 import io.github.smiley4.ktoropenapi.config.SchemaGenerator
 import io.github.smiley4.ktoropenapi.openApi
 import io.github.smiley4.schemakenerator.swagger.data.RefType
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.http.content.staticResources
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.response.respond
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
+import ledger.admin.routes.NoData
 import ledger.admin.routes.economyRoutes
 import ledger.admin.routes.healthRoutes
 import ledger.admin.routes.historyRoutes
@@ -23,6 +26,8 @@ import ledger.core.history.HistoryReader
 
 /** The path the API's OpenAPI spec is served at; the committed `openapi.json` is a copy of it. */
 const val OPENAPI_PATH = "/api/openapi.json"
+
+const val NO_SUCH_API_ROUTE = "No such API route."
 
 /**
  * Everything the admin console serves: the API, its spec and the built frontend.
@@ -62,6 +67,12 @@ fun Application.adminModule(
         leaderboardRoutes(lastCopy, gameData)
         economyRoutes(lastCopy, gameData, names)
         historyRoutes(lastCopy, gameData, history)
+
+        // Any other address under /api is a mistake in the link: say so, rather than answer
+        // with the frontend below.
+        route("/api/{...}") {
+            handle { call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_API_ROUTE)) }
+        }
 
         // The built frontend, bundled under web/ in the jar. Any path that isn't a file
         // gets index.html, so the frontend's own routes survive a page reload.
