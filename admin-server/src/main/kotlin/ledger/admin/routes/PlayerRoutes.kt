@@ -133,7 +133,8 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: G
                 body<PlayerPage>()
             }
             code(HttpStatusCode.NotFound) {
-                description = "There's no player with that id."
+                description = "There's no player with that id, or the player has no maxstats or curstats row, " +
+                    "which the server needs to load them too. The answer's message is \"There's no player with that id.\" either way."
                 body<NoData>()
             }
             code(HttpStatusCode.ServiceUnavailable) {

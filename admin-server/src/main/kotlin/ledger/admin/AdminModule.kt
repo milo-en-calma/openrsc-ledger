@@ -46,7 +46,8 @@ fun Application.adminModule(
         info {
             title = "openrsc-ledger admin API"
             version = "0.1.0"
-            description = "Read-only stats for an OpenRSC server."
+            description = "Read-only stats for an OpenRSC server. Errors answer as `{\"message\": \"…\"}`, saying what was wrong; " +
+                "any address under `/api` not listed here answers 404 with \"No such API route.\""
         }
         // Schemas named after the class alone (`Health`, not `ledger.admin.routes.Health`),
         // since the frontend's generated types are named after them.

@@ -112,13 +112,27 @@ or Ctrl-C too (only a `kill -9` can leave it behind).
 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md), and only `openrsc.dir`,
 the OpenRSC checkout, is required.
 
+**A mistake in the settings stops the ledger before it starts,** in one line,
+`openrsc-ledger can't start: …`, naming the file, line and setting, rather than being
+passed over:
+- a setting the ledger doesn't know, such as a misspelling, with a guess at the one meant
+  (`copy.at-most-evry isn't a ledger setting (line 5 of …); did you mean
+  copy.at-most-every?`). A value kept only to be substituted elsewhere (`base = /srv`, then
+  `${base}`) counts as unknown too, since it can't be told from a typo; substituting a real
+  setting or an environment variable works;
+- a value that can't work: a copy interval of zero or less, a duration without a unit
+  (`15` rather than `15s`), a port that isn't a whole number from 1 to 65535, an empty
+  folder or world name, or text where a number goes.
+
 ## How it reads the game's data
 
 **It finds the database the way the server does.** OpenRSC keeps each world's data in a
 SQLite file, `server/inc/sqlite/<db_name>.db`. The ledger reads `db_name` from the same
 config files the server reads, in the same order: `server/connections.conf`, then
 `server/local.conf` if it exists, otherwise the config of the world the server is launched
-with (the `openrsc.world` setting). MySQL servers aren't supported yet.
+with (the `openrsc.world` setting). MySQL servers aren't supported yet. It reads those
+files as the server does: a line ending in a bare `#` is skipped, and a `server_port` or
+`world_number` the server would refuse to start with stops the ledger too, naming it.
 
 **It finds worn items where the server keeps them.** The server's `want_equipment_tab`
 setting decides that, read from the same files in the same order as `db_name`, and off
@@ -135,13 +149,17 @@ journal mode, in which anything reading the file keeps the server from saving un
 read ends. So the ledger copies the database with SQLite's backup function, a few pages at
 a time, which holds the server up for milliseconds at most, and every page reads the
 copy. Each copy is written to a temporary file, checked, and renamed into place, so
-nothing ever reads a half-written copy.
+nothing ever reads a half-written copy. A copy that is damaged, or has no tables at all (as
+when the live file is empty), is refused and its temporary file deleted at once; the last
+good copy keeps serving, and the next check tries again.
 
 **It copies when the server saves.** Every 15 seconds it checks the database's
 modification time, and copies when the file has changed and the last copy is at least a
 minute old (both are settings). The copy can never be fresher than the server's last
-save, and nothing is copied while nothing happens. The copy lives in `data-dir`, which git
-ignores; it holds everything the game database holds, so keep it private.
+save, and nothing is copied while nothing happens. If the machine's clock is set back, a
+warning says so, and a changed file is copied at once rather than waiting for the clock to
+catch up. The copy lives in `data-dir`, which git ignores; it holds everything the game
+database holds, so keep it private.
 
 **It never reads players' secrets.** The server's `players` table also holds each
 player's password hash, salt, email address and IP addresses. The ledger's table
@@ -156,6 +174,21 @@ is away for a week writes nothing. It compares with what it has recorded, not wi
 previous copy, so changes made while the ledger was stopped are caught at its next copy.
 Experience is kept exactly as the server stores it. History can't be recovered later, so
 keep the file: it's the only record of the past.
+
+History is only ever written in order. If recording a copy's changes fails (a full disk,
+say), it's tried again at each check, still stamped with that copy's save time, until it
+works or a newer copy takes its place. A database saved no later than the newest
+recording, such as one restored from a backup that kept its old file time, records
+nothing that time, with a warning; the server's next save records whatever still differs.
+A history file that isn't a SQLite database, or a data folder that is a file or can't be
+written, stops the ledger at start-up with one line naming it.
+
+**Players missing a stat row.** The server makes a player's `experience`, `maxstats` and
+`curstats` rows together, so only old or hand-edited data lacks one. A player with no
+`experience` row reads as 0 experience, as the server loads them. One with no `maxstats` or
+`curstats` row can't be loaded by the server either; they stay in the player list but have
+no page (and with no `maxstats` row, no place on the leaderboards), and a warning names
+their ids whenever that list changes.
 
 **Experience is shown as players see it.** The server stores four times the experience
 shown in game, and the game client divides what it is sent by 4, rounding down; the ledger
@@ -194,7 +227,9 @@ Vite forwards `/api` calls to the server on port 8080; change `web/vite.config.t
 use another port. `npm run dev` needs a Node.js of your own (22.22 or newer); the Gradle
 build doesn't.
 
-Run the tests with `./gradlew test`.
+Run the whole suite with `./gradlew check`. It includes `webTest`, which tests the
+server with the real built frontend; `./gradlew test` leaves that out, so it doesn't wait
+on the frontend's build.
 
 ### The API spec and the frontend's types
 
@@ -211,6 +246,13 @@ regenerate it and commit the result:
 ```
 
 The running server also serves the spec at `/api/openapi.json`.
+
+Errors answer as `{"message": "…"}`, saying what was wrong. A query value that can't be
+read (`staff=1` rather than `true`, a player id that isn't a number, a time that isn't
+ISO-8601) gets 400 rather than being passed over, so a typo in a link never shows data
+that looks real. Any address under `/api` that isn't a route gets 404 "No such API
+route."; other addresses get the frontend's page, so reloading a page in the browser
+works.
 
 ## Layout
 

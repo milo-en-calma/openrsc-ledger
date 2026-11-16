@@ -2,7 +2,7 @@
   "openapi" : "3.1.0",
   "info" : {
     "title" : "openrsc-ledger admin API",
-    "description" : "Read-only stats for an OpenRSC server.",
+    "description" : "Read-only stats for an OpenRSC server. Errors answer as `{\"message\": \"…\"}`, saying what was wrong; any address under `/api` not listed here answers 404 with \"No such API route.\"",
     "version" : "0.1.0"
   },
   "externalDocs" : {
@@ -103,7 +103,7 @@
             }
           },
           "404" : {
-            "description" : "There's no player with that id.",
+            "description" : "There's no player with that id, or the player has no maxstats or curstats row, which the server needs to load them too. The answer's message is \"There's no player with that id.\" either way.",
             "headers" : { },
             "content" : {
               "application/json" : {
