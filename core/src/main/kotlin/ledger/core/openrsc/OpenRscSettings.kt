@@ -23,6 +23,9 @@ class OpenRscSettings {
         for (raw in lines) {
             var line = raw
             if ('#' in line) {
+                // Split on '#' as Java does, dropping empty pieces at the end: with fewer than
+                // two left, the server skips the line, even "key: value #".
+                if (line.split('#').dropLastWhile { it.isEmpty() }.size < 2) { continue }
                 // A commented-out setting.
                 if (line.indexOf('#') < line.indexOf(':')) { continue }
                 // Otherwise keep the part holding the setting, dropping the comment.
