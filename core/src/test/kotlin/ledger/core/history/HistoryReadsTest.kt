@@ -10,9 +10,11 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlin.time.measureTime
+import kotlin.time.measureTimedValue
 
 /**
  * The history store reads through its index rather than through every row. These check that
@@ -113,6 +115,22 @@ class HistoryReadsTest {
     }
 
     @Test
+    fun `a store opened afresh knows the newest time in the file, refusing a recording at it and taking one just after`() {
+        repeat(20) { round ->
+            val random = Random(100 + round)
+            val rows = randomRows(random, players = random.nextInt(1, 8), count = random.nextInt(1, 200))
+            val file = dir.resolve("newest-$round.db")
+            fill(file, rows)
+            val newestAt = Instant.fromEpochMilliseconds(rows.maxOf { it.at })
+            // Player 99 is in no row, so this is always a change to record.
+            val changed = listOf(PlayerSkills(99, mapOf(Skill.WOODCUT to SkillValue(1, 1))))
+
+            assertEquals(0, HistoryStore(file).record(newestAt, changed), "round $round")
+            assertEquals(1, HistoryStore(file).record(newestAt + 1.milliseconds, changed), "round $round")
+        }
+    }
+
+    @Test
     fun `every read of the history jumps through the index, never through the whole table`() {
         val file = dir.resolve("history.db")
         fill(file, randomRows(Random(1), players = 50, count = 5000))
@@ -121,7 +139,7 @@ class HistoryReadsTest {
             "one player's changes" to HistoryStore.changesSql(onePlayer = true, oneSkill = false),
             "one skill's changes" to HistoryStore.changesSql(onePlayer = false, oneSkill = true),
             "one player's changes in one skill" to HistoryStore.changesSql(onePlayer = true, oneSkill = true),
-            "the newest time" to "SELECT MAX(recorded_at) FROM skill_history",
+            "the newest values, read at start-up" to HistoryStore.NEWEST_SQL,
             "the oldest time" to "SELECT MIN(recorded_at) FROM skill_history",
         )
         DriverManager.getConnection("jdbc:sqlite:$file").use { connection ->
@@ -149,7 +167,7 @@ class HistoryReadsTest {
             experience[key] = value
             Row(key.first, key.second, SkillValue(value, 1), end - year + row * (year / 1_000_000))
         })
-        val history = HistoryStore(file)
+        val (history, opening) = measureTimedValue { HistoryStore(file) }
         val latest = history.latest().entries.groupBy({ it.key.first }, { it.key.second to it.value })
         val current = latest.map { (player, skills) ->
             PlayerSkills(player, skills.associate { (skill, value) -> skill to if (player <= 50) value.copy(experience = value.experience + 1) else value })
@@ -157,6 +175,7 @@ class HistoryReadsTest {
         val day = Instant.fromEpochMilliseconds(end - 24 * 3600 * 1000) to Instant.fromEpochMilliseconds(end)
 
         // Limits about five times what these take on an ordinary laptop, and below the times of reading every row.
+        assertTrue(opening.inWholeMilliseconds < 600, "Opening the store took $opening")
         val recording = measureTime { assertTrue(history.record(Instant.fromEpochMilliseconds(end + 30_000), current) > 0) }
         assertTrue(recording.inWholeMilliseconds < 400, "Recording a copy took $recording")
         val everyone = measureTime { history.changes(day.first, day.second) }

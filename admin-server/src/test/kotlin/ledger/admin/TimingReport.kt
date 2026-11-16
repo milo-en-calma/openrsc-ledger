@@ -61,12 +61,6 @@ class TimingReport {
             say("  history.db: ${Files.size(file) / 1_000_000} MB, ${Files.size(file) / rows} bytes per row")
             val history = time("Open history.db, reading each player's newest values as start-up does") { HistoryStore(file) }
             timeStartUp(live, file, dir.resolve("start-$rows"))
-            DriverManager.getConnection("jdbc:sqlite:$file").use { connection ->
-                HISTORY_QUERIES.forEach { plan(connection, it) }
-                time("Read the newest recording time, as each recording does") {
-                    connection.createStatement().use { it.executeQuery(HISTORY_QUERIES.last()).use { rows -> rows.next() } }
-                }
-            }
             timeRecording(history)
             timeRoutes(game, history)
             Files.delete(file)
@@ -257,16 +251,6 @@ class TimingReport {
                 "JOIN curstats ON players.id = curstats.playerID WHERE players.id = 5",
             "SELECT * FROM bank JOIN itemstatuses ON bank.itemID = itemstatuses.itemID WHERE bank.playerID = 5 ORDER BY bank.slot",
             "SELECT * FROM quests WHERE playerID = 5",
-        )
-
-        /**
-         * history.db's simple queries, as HistoryStore makes them: each player's and skill's
-         * newest value, read once when the store opens, and the newest time, read at each
-         * recording. Core's HistoryReadsTest checks the plan of the gains read.
-         */
-        val HISTORY_QUERIES = listOf(
-            "SELECT player_id, skill, experience, level, MAX(recorded_at) FROM skill_history GROUP BY player_id, skill",
-            "SELECT MAX(recorded_at) FROM skill_history",
         )
     }
 }
