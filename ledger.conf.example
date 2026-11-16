@@ -23,7 +23,8 @@ openrsc {
 }
 
 # The ledger never reads the server's live database, which would hold up the server's
-# saves; it reads a copy, refreshed when the live file changes.
+# saves; it reads a copy, refreshed when the live file changes. Each duration needs its
+# unit (15s, 2m, 500ms): a bare number such as 15 is refused.
 copy {
   # How often to check whether the server has saved.
   check-every = 15s

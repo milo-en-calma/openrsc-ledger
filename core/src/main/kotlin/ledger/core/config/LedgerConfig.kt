@@ -35,19 +35,42 @@ data class LedgerConfig(
             require(merged.hasPath("openrsc.dir")) {
                 "openrsc.dir is not set: it must name the OpenRSC checkout, the folder that holds server/"
             }
+            val checkEvery = merged.duration("copy.check-every")
+            val atMostEvery = merged.duration("copy.at-most-every")
+            require(checkEvery.isPositive()) { "copy.check-every must be more than zero, such as 15s" }
+            require(!atMostEvery.isNegative()) { "copy.at-most-every can't be below zero" }
             return LedgerConfig(
-                port = merged.getInt("port"),
-                dataDir = baseDir.resolve(merged.getString("data-dir")).normalize(),
+                port = merged.port(),
+                dataDir = baseDir.resolve(merged.nonEmptyString("data-dir")).normalize(),
                 openRsc = OpenRscConfig(
-                    dir = baseDir.resolve(merged.getString("openrsc.dir")).normalize(),
-                    world = merged.getString("openrsc.world"),
+                    dir = baseDir.resolve(merged.nonEmptyString("openrsc.dir")).normalize(),
+                    world = merged.nonEmptyString("openrsc.world"),
                 ),
-                copy = CopyConfig(
-                    checkEvery = merged.getDuration("copy.check-every").toKotlinDuration(),
-                    atMostEvery = merged.getDuration("copy.at-most-every").toKotlinDuration(),
-                ),
+                copy = CopyConfig(checkEvery = checkEvery, atMostEvery = atMostEvery),
             )
         }
+
+        private val BARE_NUMBER = Regex("""\s*[+-]?[0-9.]+\s*""")
+
+        /** A duration, refusing a bare number, which HOCON would quietly read as milliseconds. */
+        private fun Config.duration(path: String): Duration {
+            require(!BARE_NUMBER.matches(getValue(path).unwrapped().toString())) {
+                "$path needs a unit, such as 15s"
+            }
+            return getDuration(path).toKotlinDuration()
+        }
+
+        /** The admin console's port: a whole number from 1 to 65535. */
+        private fun Config.port(): Int {
+            val number = getNumber("port").toDouble()
+            require(number == Math.rint(number) && number in 1.0..65535.0) {
+                "port must be a whole number from 1 to 65535"
+            }
+            return number.toInt()
+        }
+
+        private fun Config.nonEmptyString(path: String): String =
+            getString(path).also { require(it.isNotBlank()) { "$path can't be empty" } }
     }
 }
 
