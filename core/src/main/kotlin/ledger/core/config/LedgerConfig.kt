@@ -1,6 +1,7 @@
 package ledger.core.config
 
 import com.typesafe.config.Config
+import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -26,11 +27,16 @@ data class LedgerConfig(
             require(Files.isRegularFile(path)) {
                 "No config file at ${path.toAbsolutePath()}. Copy ledger.conf.example to ledger.conf and edit it."
             }
-            return parse(ConfigFactory.parseFile(path.toFile()), path.toAbsolutePath().parent)
+            return parse(refusingMistakes { ConfigFactory.parseFile(path.toFile()) }, path.toAbsolutePath().parent)
         }
 
-        /** Reads [config] over the defaults, resolving relative paths against [baseDir]. */
-        fun parse(config: Config, baseDir: Path): LedgerConfig {
+        /**
+         * Reads [config] over the defaults, resolving relative paths against [baseDir]. Every
+         * mistake in it, such as text where a number goes, is an [IllegalArgumentException].
+         */
+        fun parse(config: Config, baseDir: Path): LedgerConfig = refusingMistakes { parseChecked(config, baseDir) }
+
+        private fun parseChecked(config: Config, baseDir: Path): LedgerConfig {
             val merged = config.withFallback(ConfigFactory.parseResources("ledger-defaults.conf")).resolve()
             require(merged.hasPath("openrsc.dir")) {
                 "openrsc.dir is not set: it must name the OpenRSC checkout, the folder that holds server/"
@@ -48,6 +54,17 @@ data class LedgerConfig(
                 ),
                 copy = CopyConfig(checkEvery = checkEvery, atMostEvery = atMostEvery),
             )
+        }
+
+        /**
+         * Runs [block], turning the settings library's own error (an unclosed brace, text where
+         * a number goes) into the same [IllegalArgumentException] as every other settings
+         * mistake. Its message, which names the file, line and setting, is kept.
+         */
+        private inline fun <T> refusingMistakes(block: () -> T): T = try {
+            block()
+        } catch (e: ConfigException) {
+            throw IllegalArgumentException(e.message, e)
         }
 
         private val BARE_NUMBER = Regex("""\s*[+-]?[0-9.]+\s*""")

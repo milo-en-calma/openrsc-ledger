@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -158,7 +159,28 @@ class LedgerConfigTest {
     }
 
     @Test
-    fun `rejects a port that isn't a number`() {
-        assertFailsWith<ConfigException.WrongType> { parse("openrsc.dir = /srv/openrsc\nport = eighty") }
+    fun `refuses a value of the wrong type plainly, naming the setting`() {
+        val port = assertFailsWith<IllegalArgumentException> { parse("openrsc.dir = /srv/openrsc\nport = eighty") }
+        assertContains(port.message!!, "port has type STRING rather than NUMBER")
+        assertIs<ConfigException.WrongType>(port.cause)
+        assertContains(refusal("openrsc.dir { a = 1 }"), "openrsc.dir has type OBJECT rather than STRING")
+    }
+
+    @Test
+    fun `refuses a duration with no number plainly`() {
+        assertContains(refusal("copy.check-every = soon"), "No number in duration value 'soon'")
+    }
+
+    @Test
+    fun `refuses an unset substitution plainly`() {
+        assertContains(refusal("data-dir = ${'$'}{LEDGER_TEST_UNSET_VARIABLE}"), "LEDGER_TEST_UNSET_VARIABLE")
+    }
+
+    @Test
+    fun `load refuses a file that doesn't parse plainly, naming the file and line`() {
+        val file = createTempDirectory("ledger-config").resolve("ledger.conf")
+        file.writeText("openrsc {\n  dir = /srv/openrsc\n")
+        val error = assertFailsWith<IllegalArgumentException> { LedgerConfig.load(file) }
+        assertContains(error.message!!, "$file: 3:")
     }
 }

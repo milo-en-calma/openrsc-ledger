@@ -19,6 +19,8 @@ const val HOST = "127.0.0.1"
 
 private const val PRINT_LAUNCH_SETTINGS = "--print-launch-settings"
 
+const val USAGE = "Usage: ledger-admin [$PRINT_LAUNCH_SETTINGS] [config file]"
+
 private val log = LoggerFactory.getLogger("ledger.admin")
 
 /** What `ledger-admin` was asked to do: read the config at [configPath], and print the launch settings or serve. */
@@ -26,13 +28,28 @@ data class Arguments(val printLaunchSettings: Boolean, val configPath: Path)
 
 /**
  * Reads `ledger-admin [--print-launch-settings] [config file]`, the flag before or after the
- * file. The config file is the argument, else [ledgerConf] (`$LEDGER_CONF`), else `ledger.conf`
- * in the working directory.
+ * file. The config file is the argument, else [ledgerConf] (`$LEDGER_CONF`, unless it's empty,
+ * as the launch script reads it), else `ledger.conf` in the working directory. Any other option,
+ * or a second file, is an [IllegalArgumentException], so a mistyped flag is never ignored.
  */
-fun parseArguments(args: List<String>, ledgerConf: String? = System.getenv("LEDGER_CONF")) = Arguments(
-    printLaunchSettings = PRINT_LAUNCH_SETTINGS in args,
-    configPath = Path.of(args.firstOrNull { it != PRINT_LAUNCH_SETTINGS } ?: ledgerConf ?: "ledger.conf"),
-)
+fun parseArguments(args: List<String>, ledgerConf: String? = System.getenv("LEDGER_CONF")): Arguments {
+    val files = args.filter { it != PRINT_LAUNCH_SETTINGS }
+    files.firstOrNull { it.startsWith("-") }?.let { throw IllegalArgumentException("Unknown option $it") }
+    require(files.size <= 1) { "Give one config file, not two" }
+    return Arguments(
+        printLaunchSettings = PRINT_LAUNCH_SETTINGS in args,
+        configPath = Path.of(files.singleOrNull() ?: ledgerConf?.ifEmpty { null } ?: "ledger.conf"),
+    )
+}
+
+/**
+ * The ledger's settings at [configPath], and the game server they name. A mistake in either,
+ * such as a missing file or text where a number goes, is an [IllegalArgumentException].
+ */
+fun loadSettings(configPath: Path): Pair<LedgerConfig, OpenRscServer> {
+    val config = LedgerConfig.load(configPath)
+    return config to OpenRscServer.load(config.openRsc)
+}
 
 /**
  * Starts the admin console ([parseArguments] says how it's called). With
@@ -40,12 +57,9 @@ fun parseArguments(args: List<String>, ledgerConf: String? = System.getenv("LEDG
  * exits instead.
  */
 fun main(args: Array<String>) {
-    val (printLaunchSettings, configPath) = parseArguments(args.toList())
+    val (printLaunchSettings, configPath) = orExit(withUsage = true) { parseArguments(args.toList()) }
 
-    val (config, server) = orExit {
-        val config = LedgerConfig.load(configPath)
-        config to OpenRscServer.load(config.openRsc)
-    }
+    val (config, server) = orExit { loadSettings(configPath) }
     if (printLaunchSettings) {
         print(launchSettings(config, server))
         return
@@ -69,10 +83,11 @@ fun main(args: Array<String>) {
     }.start(wait = true)
 }
 
-/** Runs [block], turning a setup problem into a one-line message and exit code 1. */
-private fun <T> orExit(block: () -> T): T = try {
+/** Runs [block], turning a setup problem into a one-line message ([withUsage], then [USAGE]) and exit code 1. */
+private fun <T> orExit(withUsage: Boolean = false, block: () -> T): T = try {
     block()
 } catch (e: IllegalArgumentException) {
     System.err.println("openrsc-ledger can't start: ${e.message}")
+    if (withUsage) { System.err.println(USAGE) }
     exitProcess(1)
 }

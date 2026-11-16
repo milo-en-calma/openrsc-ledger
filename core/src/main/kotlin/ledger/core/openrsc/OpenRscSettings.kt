@@ -1,5 +1,6 @@
 package ledger.core.openrsc
 
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -17,7 +18,14 @@ class OpenRscSettings {
 
     operator fun get(key: String): String? = settings[key]
 
-    fun load(file: Path) = load(Files.readAllLines(file))
+    /** Loads [file]; one that can't be read is an [IllegalArgumentException] naming it. */
+    fun load(file: Path) = load(
+        try {
+            Files.readAllLines(file)
+        } catch (e: IOException) {
+            throw IllegalArgumentException("Can't read the server's settings file $file: ${e.message}", e)
+        },
+    )
 
     fun load(lines: List<String>) {
         for (raw in lines) {

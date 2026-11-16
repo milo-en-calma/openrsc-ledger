@@ -81,8 +81,9 @@ To run the ledger on its own, without the launcher:
 admin-server/build/install/ledger-admin/bin/ledger-admin
 ```
 
-The app looks for its config in the first command-line argument, else in the
-`LEDGER_CONF` environment variable, else in `ledger.conf` in the working directory.
+The app looks for its config in its command-line argument, else in the `LEDGER_CONF`
+environment variable (unless it's empty), else in `ledger.conf` in the working directory.
+It takes one config file at most, and refuses any option but `--print-launch-settings`.
 `ledger.conf` is ignored by git; keep your own settings there. It is
 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md), and only `openrsc.dir`,
 the OpenRSC checkout, is required.

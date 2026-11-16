@@ -3,7 +3,9 @@ package ledger.core.openrsc
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class OpenRscSettingsTest {
@@ -107,5 +109,15 @@ class OpenRscSettingsTest {
         val settings = OpenRscSettings().apply { load(file) }
         assertEquals("43597", settings["server_port"])
         assertEquals("oakvale", settings["db_name"])
+    }
+
+    @Test
+    fun `a file it can't read is a plain refusal naming the file`() {
+        val file = createTempDirectory("ledger-test").resolve("local.conf")
+        file.writeText("db_name: oakvale\n")
+        file.toFile().setReadable(false)
+
+        val error = assertFailsWith<IllegalArgumentException> { OpenRscSettings().load(file) }
+        assertContains(error.message!!, "Can't read the server's settings file $file")
     }
 }
