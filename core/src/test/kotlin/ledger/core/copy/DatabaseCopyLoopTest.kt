@@ -153,6 +153,183 @@ class DatabaseCopyLoopTest {
     }
 
     @Test
+    fun `retries a failed copy at the next check, without waiting for another save`() {
+        loop.checkOnce()
+        advance(2.minutes, save = true)
+        val permissions = Files.getPosixFilePermissions(live)
+        Files.setPosixFilePermissions(live, emptySet())
+        try {
+            assertFails { loop.checkOnce() }
+        } finally {
+            Files.setPosixFilePermissions(live, permissions)
+        }
+
+        advance(15.seconds, save = false)
+        assertTrue(loop.checkOnce())
+        assertEquals(now, loop.lastCopy?.copiedAt)
+    }
+
+    @Test
+    fun `retries a failed first copy at once`() {
+        Files.move(live, aside)
+        assertFails { loop.checkOnce() }
+        Files.move(aside, live)
+        assertTrue(loop.checkOnce())
+    }
+
+    @Test
+    fun `copies when the database's time goes back, as after a restore from a backup`() {
+        loop.checkOnce()
+        val restored = start - 3.minutes
+        advance(2.minutes, save = false)
+        Files.setLastModifiedTime(live, FileTime.from(restored.toJavaInstant()))
+        assertTrue(loop.checkOnce())
+        assertEquals(restored, loop.lastCopy?.liveModified)
+    }
+
+    @Test
+    fun `copies again after a save made while the last copy ran`() {
+        val savingLoop = DatabaseCopyLoop(live, copier, config, clock) {
+            // The server saves after the loop read the file's time, while the copy runs.
+            Files.setLastModifiedTime(live, FileTime.from((now + 1.seconds).toJavaInstant()))
+        }
+        savingLoop.checkOnce()
+        advance(60.seconds, save = false)
+        assertTrue(savingLoop.checkOnce())
+    }
+
+    @Test
+    fun `copies at every change when there's no minimum gap`() {
+        val eager = DatabaseCopyLoop(live, copier, CopyConfig(checkEvery = 15.seconds, atMostEvery = Duration.ZERO), clock)
+        eager.checkOnce()
+        advance(1.seconds, save = true)
+        assertTrue(eager.checkOnce())
+        assertFalse(eager.checkOnce())
+    }
+
+    @Test
+    fun `copies after a change when the clock has been set back`() {
+        loop.checkOnce()
+        now -= 1.minutes * 60
+        Files.setLastModifiedTime(live, FileTime.from((start + 1.seconds).toJavaInstant()))
+        advance(15.seconds, save = false)
+        assertTrue(loop.checkOnce())
+    }
+
+    @Test
+    fun `a failed after-copy step still counts the copy`() {
+        var fail = true
+        val failing = DatabaseCopyLoop(live, copier, config, clock) { if (fail) { error("history couldn't be written") } }
+        assertFails { failing.checkOnce() }
+        assertEquals(start, failing.lastCopy?.copiedAt)
+        assertEquals(3, copiedPlayers())
+
+        fail = false
+        advance(15.seconds, save = false)
+        assertFalse(failing.checkOnce())
+    }
+
+    @Test
+    fun `runs a failed after-copy step again at the next check, with the same copy, until it works`() {
+        val failures = ArrayDeque(listOf(true, true, false))
+        val calls = mutableListOf<CopyRecord>()
+        val failing = DatabaseCopyLoop(live, copier, config, clock) {
+            calls += it
+            if (failures.removeFirst()) { error("history couldn't be written") }
+        }
+        val failed = assertFailsWith<AfterCopyFailed> { failing.checkOnce() }
+        assertEquals("history couldn't be written", failed.cause?.message)
+        val first = failing.lastCopy
+
+        advance(15.seconds, save = false)
+        assertFailsWith<AfterCopyFailed> { failing.checkOnce() }
+        advance(15.seconds, save = false)
+        assertFalse(failing.checkOnce())
+        assertEquals(listOf(first, first, first), calls)
+
+        advance(15.seconds, save = false)
+        assertFalse(failing.checkOnce())
+        assertEquals(3, calls.size)
+    }
+
+    @Test
+    fun `drops a failed after-copy step when a newer copy comes first`() {
+        var fail = true
+        val calls = mutableListOf<CopyRecord>()
+        val failing = DatabaseCopyLoop(live, copier, config, clock) {
+            calls += it
+            if (fail) { error("history couldn't be written") }
+        }
+        assertFails { failing.checkOnce() }
+
+        fail = false
+        advance(2.minutes, save = true)
+        assertTrue(failing.checkOnce())
+        advance(15.seconds, save = false)
+        assertFalse(failing.checkOnce())
+        assertEquals(listOf(start, start + 2.minutes), calls.map { it.copiedAt })
+    }
+
+    @Test
+    fun `a failed copy, once retried, runs its own after-copy step in place of an older failed one`() {
+        var fail = true
+        val calls = mutableListOf<CopyRecord>()
+        val failing = DatabaseCopyLoop(live, copier, config, clock) {
+            calls += it
+            if (fail) { error("history couldn't be written") }
+        }
+        assertFails { failing.checkOnce() }
+
+        fail = false
+        advance(2.minutes, save = true)
+        val permissions = Files.getPosixFilePermissions(live)
+        Files.setPosixFilePermissions(live, emptySet())
+        try {
+            assertFails { failing.checkOnce() }
+        } finally {
+            Files.setPosixFilePermissions(live, permissions)
+        }
+        assertEquals(listOf(start), calls.map { it.copiedAt })
+
+        // The copy is retried first, and its own step takes the old one's place.
+        advance(15.seconds, save = false)
+        assertTrue(failing.checkOnce())
+        assertEquals(listOf(start, now), calls.map { it.copiedAt })
+    }
+
+    @Test
+    fun `a failed copy isn't taken for a failed after-copy step`() {
+        Files.move(live, aside)
+        val failed = assertFails { loop.checkOnce() }
+        assertFalse(failed is AfterCopyFailed)
+    }
+
+    @Test
+    fun `doesn't copy when the clock has been set back but nothing changed`() {
+        loop.checkOnce()
+        now -= 1.minutes * 60
+        assertFalse(loop.checkOnce())
+    }
+
+    @Test
+    fun `the running loop carries on when the after-copy step fails`() = runBlocking {
+        var calls = 0
+        val quick = DatabaseCopyLoop(live, copier, CopyConfig(checkEvery = 10.milliseconds, atMostEvery = Duration.ZERO)) {
+            calls++
+            error("history couldn't be written")
+        }
+        val running = launch(Dispatchers.IO) { quick.run() }
+        try {
+            withTimeout(5.seconds) { while (quick.lastCopy == null) { delay(10.milliseconds) } }
+            Files.setLastModifiedTime(live, FileTime.from(Instant.parse("2030-01-01T00:00:00Z").toJavaInstant()))
+            withTimeout(5.seconds) { while (calls < 2) { delay(10.milliseconds) } }
+            assertTrue(running.isActive)
+        } finally {
+            running.cancelAndJoin()
+        }
+    }
+
+    @Test
     fun `the running loop carries on while the database is missing, and copies once it's back`() = runBlocking {
         Files.move(live, aside)
         val quick = DatabaseCopyLoop(live, copier, CopyConfig(checkEvery = 10.milliseconds, atMostEvery = Duration.ZERO))
