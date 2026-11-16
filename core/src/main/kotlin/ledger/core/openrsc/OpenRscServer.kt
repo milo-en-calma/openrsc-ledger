@@ -20,7 +20,7 @@ class OpenRscServer private constructor(
     private val settings: OpenRscSettings,
 ) {
     /** The port the game listens on for players (`server_port`). */
-    val gamePort: Int = settings["server_port"]?.toIntOrNull() ?: DEFAULT_GAME_PORT
+    val gamePort: Int = wholeNumber("server_port") ?: DEFAULT_GAME_PORT
 
     /**
      * The file the server logs its world to, `server/logs/<name>_<number>.log`: `server_name`
@@ -29,7 +29,7 @@ class OpenRscServer private constructor(
      * it afresh, so it is always the newest.
      */
     val worldLog: Path = serverDir.resolve("logs").resolve(
-        "${worldLogName(settings["server_name"] ?: DEFAULT_SERVER_NAME)}_${settings["world_number"]?.toIntOrNull() ?: DEFAULT_WORLD_NUMBER}.log",
+        "${worldLogName(settings["server_name"] ?: DEFAULT_SERVER_NAME)}_${wholeNumber("world_number") ?: DEFAULT_WORLD_NUMBER}.log",
     )
 
     /**
@@ -49,6 +49,15 @@ class OpenRscServer private constructor(
         }
         value.toBoolean()
     } ?: false
+
+    /**
+     * The whole number set for [key], or null if it isn't set. Anything else is refused, as the
+     * server refuses it at start (`ServerConfiguration.tryReadInt`); a sign or leading zeros are
+     * read as Java's `Integer.parseInt` reads them.
+     */
+    private fun wholeNumber(key: String): Int? = settings[key]?.let { value ->
+        requireNotNull(value.toIntOrNull()) { "The server's $key is \"$value\"; the server accepts only a whole number" }
+    }
 
     /** The live SQLite database: `server/inc/sqlite/<db_name>.db`. */
     fun database(): Path {
