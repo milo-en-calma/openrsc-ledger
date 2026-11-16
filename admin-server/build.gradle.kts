@@ -73,9 +73,31 @@ tasks.named<JavaExec>("run") {
     workingDir = rootDir
 }
 
+// The tests that need the real built frontend; they run only in webTest, below.
+val builtWebTests = "ledger.admin.BuiltWebTest"
+
 tasks.test {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     // `./gradlew :admin-server:test -PupdateOpenApi` rewrites openapi.json instead of checking it.
     systemProperty("ledger.updateOpenApi", providers.gradleProperty("updateOpenApi").isPresent)
+    filter { excludeTestsMatching(builtWebTests) }
 }
+
+// The built frontend as the installed app serves it, from the same ledger-web jar. Its own task,
+// so `test` doesn't wait on an npm build; `check` runs both, so the whole suite is `./gradlew check`.
+val webTest by tasks.registering(Test::class) {
+    description = "Tests the built frontend as the admin server serves it from the ledger-web jar."
+    group = "verification"
+    useJUnitPlatform()
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    // The jar first, so its web/index.html is found before the test resources' stand-in.
+    classpath = files(webJar) + sourceSets.test.get().runtimeClasspath
+    filter { includeTestsMatching(builtWebTests) }
+    val webSource = rootProject.layout.projectDirectory.dir("web/src")
+    inputs.dir(webSource)
+    systemProperty("ledger.webSource", webSource.asFile.absolutePath)
+}
+
+tasks.check { dependsOn(webTest) }
