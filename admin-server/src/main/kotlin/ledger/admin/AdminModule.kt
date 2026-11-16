@@ -25,6 +25,7 @@ import ledger.core.copy.CopyRecord
 import ledger.core.game.GameData
 import ledger.core.gamedata.GameNames
 import ledger.core.history.HistoryReader
+import kotlin.time.Clock
 
 /** The path the API's OpenAPI spec is served at; the committed `openapi.json` is a copy of it. */
 const val OPENAPI_PATH = "/api/openapi.json"
@@ -38,13 +39,15 @@ fun givenTwice(name: String) = "Give `$name` once."
  * Everything the admin console serves: the API, its spec and the built frontend.
  * [lastCopy] gives the newest copy of the server's database, or null before the first;
  * [gameData] reads that copy, [names] gives items and quests their names, and [history]
- * reads the ledger's own record of how skills changed.
+ * reads the ledger's own record of how skills changed. [clock] ends a period of gains left
+ * open, as the copy loop's clock stamps the copies.
  */
 fun Application.adminModule(
     lastCopy: () -> CopyRecord?,
     gameData: GameData,
     names: GameNames = GameNames.bundled(),
     history: HistoryReader = HistoryReader.NONE,
+    clock: Clock = Clock.System,
 ) {
     install(ContentNegotiation) { json() }
     install(OpenApi) {
@@ -85,7 +88,7 @@ fun Application.adminModule(
         playerRoutes(lastCopy, gameData, names)
         leaderboardRoutes(lastCopy, gameData)
         economyRoutes(lastCopy, gameData, names)
-        historyRoutes(lastCopy, gameData, history)
+        historyRoutes(lastCopy, gameData, history, clock)
 
         // Any other address under /api is a mistake in the link: say so, rather than answer
         // with the frontend below.

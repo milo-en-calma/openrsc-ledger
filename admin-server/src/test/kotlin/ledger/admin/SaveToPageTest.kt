@@ -1,5 +1,9 @@
 package ledger.admin
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.request.get
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -11,6 +15,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import ledger.core.config.CopyConfig
 import ledger.core.fixture.Fixtures
+import ledger.core.game.Skill
+import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
@@ -347,5 +353,96 @@ class SaveToPageTest {
             assertEquals(coins, holders["held"], "the economy's coin totals and the holders page agree")
             assertEquals(listOf("Bramblewick", "Tansy Moss"), holders["holders"].strings("name"))
         }
+    }
+
+    /** A viewer's local midnight in New York (UTC-5 in March), as the pages send it for "today". */
+    private val midnight = Instant.parse("2026-03-02T05:00:00Z")
+
+    /** Gains as the pages ask for them: from a time, with the end left to the ledger's clock. */
+    private suspend fun ApplicationTestBuilder.gainsSince(from: Instant): JsonElement = getJson("/api/history/gains?from=$from")
+
+    /** The warnings the ledger logs while [block] runs. */
+    private fun warnings(block: () -> Unit): List<String> {
+        val logger = LoggerFactory.getLogger("ledger.admin") as Logger
+        val appender = ListAppender<ILoggingEvent>().apply { start() }
+        logger.addAppender(appender)
+        try {
+            block()
+        } finally {
+            logger.detachAppender(appender)
+        }
+        return appender.list.filter { it.level == Level.WARN }.map { it.formattedMessage }
+    }
+
+    @Test
+    fun `a period of gains left open ends at the ledger's own clock`() {
+        val ledger = ledger()
+        firstCopy(ledger)
+        pages(ledger) { assertEquals(now.toString(), gainsSince(t0)["to"].jsonPrimitive.content) }
+    }
+
+    @Test
+    fun `a save just before midnight, copied after it, counts for its own day, and one at midnight for the day before`() {
+        val ledger = ledger()
+        firstCopy(ledger)
+        save(midnight - 5.seconds, *skill(1, "fishing", 5, 4 * 400))
+        now = midnight + 10.seconds
+        ledger.copyLoop.checkOnce()
+        save(midnight + 20.seconds, *skill(1, "fishing", 6, 4 * 500))
+        now = midnight + 40.seconds
+        ledger.copyLoop.checkOnce()
+        save(midnight + 24.hours, *skill(2, "cooking", 3, 4 * 200))
+        now = midnight + 24.hours + 10.seconds
+        ledger.copyLoop.checkOnce()
+
+        pages(ledger) {
+            assertEquals(listOf(5), gains(midnight - 24.hours, midnight)["gains"].ints("level"), "yesterday's save is yesterday's gain")
+            assertEquals(listOf(100), gains(midnight, midnight + 1.hours)["gains"].ints("experienceGained"), "today counts from the save before midnight")
+            assertEquals(0, gainsSince(midnight + 24.hours)["gains"].jsonArray.size, "a save stamped exactly at midnight is the day before's")
+        }
+    }
+
+    @Test
+    fun `a database restored with an older file time is caught up by the next save`() {
+        val ledger = ledger()
+        firstCopy(ledger)
+        now = midnight + 10.hours
+        save(now - 1.minutes, *skill(1, "fishing", 5, 4 * 400))
+        ledger.copyLoop.checkOnce()
+        // Restored from last night's backup, keeping its time: older than what's recorded, so not recorded.
+        now += 1.minutes
+        save(midnight - 3.hours, *skill(1, "fishing", 3, 4 * 200))
+        ledger.copyLoop.checkOnce()
+        pages(ledger) { assertEquals(listOf(5), gainsSince(midnight)["gains"].ints("level")) }
+
+        now += 1.minutes
+        save(now - 10.seconds, *skill(1, "fishing", 4, 4 * 300))
+        ledger.copyLoop.checkOnce()
+        pages(ledger) {
+            assertEquals(listOf(4), gainsSince(midnight)["gains"].ints("level"))
+            assertEquals(4, getJson("/api/players/1").skillRow("fishing")["fullLevel"].jsonPrimitive.int, "the page and the gains agree")
+        }
+    }
+
+    @Test
+    fun `a file time ahead of the clock is recorded at the copy's time, with one warning each time it runs ahead`() {
+        val ledger = ledger()
+        firstCopy(ledger)
+        val levels = mutableListOf<Int>()
+        val warned = warnings {
+            for ((level, ahead) in listOf(5 to 2.hours, 6 to 2.hours, 8 to Duration.ZERO, 9 to 1.hours)) {
+                now += 1.minutes
+                save(now - 10.seconds + ahead, *skill(1, "fishing", level, 4 * 100 * level))
+                assertTrue(ledger.copyLoop.checkOnce())
+                pages(ledger) {
+                    val gain = gainsSince(t0)["gains"].jsonArray.single()
+                    assertEquals(getJson("/api/players/1").skillRow("fishing")["fullLevel"].jsonPrimitive.int, gain["level"].jsonPrimitive.int, "the page and the gains agree")
+                    levels += gain["level"].jsonPrimitive.int
+                }
+            }
+        }
+        assertEquals(listOf(5, 6, 8, 9), levels, "every save shows in the gains at once")
+        assertEquals(2, warned.count { "after this machine's clock" in it }, "warned when it ran ahead, not again until it ran ahead anew: $warned")
+        assertEquals(now, ledger.history.values(1, Skill.FISHING).last().first, "the last one stamped at its copy")
     }
 }

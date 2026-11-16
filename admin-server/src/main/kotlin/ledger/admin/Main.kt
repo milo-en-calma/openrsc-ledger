@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.system.exitProcess
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /** The admin console listens on the loopback address only: being unreachable from other machines is its security. */
 const val HOST = "127.0.0.1"
@@ -102,11 +103,12 @@ fun main(args: Array<String>) {
 /**
  * The ledger's working parts, wired as [main] runs them, so tests can run the same wiring.
  * [copyLoop] copies the server's [liveDatabase] into [dataDir], and after each copy records
- * its skill changes in [history], stamped with the server's save time, not the copy's;
- * [serve] answers the API and the pages from the newest copy and that history. A history
- * file that can't be used is an [IllegalArgumentException], as [HistoryStore] says.
+ * its skill changes in [history], stamped with the server's save time, not the copy's
+ * ([recordingTime]); [serve] answers the API and the pages from the newest copy and that
+ * history, with the same [clock]. A history file that can't be used is an
+ * [IllegalArgumentException], as [HistoryStore] says.
  */
-class Ledger(liveDatabase: Path, dataDir: Path, copy: CopyConfig, equipmentTab: Boolean, clock: Clock = Clock.System) {
+class Ledger(liveDatabase: Path, dataDir: Path, copy: CopyConfig, equipmentTab: Boolean, private val clock: Clock = Clock.System) {
     val copier = DatabaseCopier(liveDatabase, dataDir.resolve("server-copy.db"))
     val gameData = SqliteGameData(copier.copy, equipmentTab = equipmentTab)
     val history = HistoryStore(dataDir.resolve("history.db"))
@@ -114,13 +116,16 @@ class Ledger(liveDatabase: Path, dataDir: Path, copy: CopyConfig, equipmentTab: 
     /** The players missing a stat row at the last copy, so the warning comes once each time the list changes. */
     private var missingStats = emptyList<Int>()
 
+    /** Whether the last copy's file time was ahead of the clock, so the warning comes once each time it runs ahead. */
+    private var fileTimeAhead = false
+
     val copyLoop = DatabaseCopyLoop(liveDatabase, copier, copy, clock) { record -> afterCopy(record) }
 
     fun serve(application: Application) =
-        application.adminModule(lastCopy = { copyLoop.lastCopy }, gameData = gameData, history = history)
+        application.adminModule(lastCopy = { copyLoop.lastCopy }, gameData = gameData, history = history, clock = clock)
 
     private fun afterCopy(record: CopyRecord) {
-        val written = history.record(record.liveModified, gameData.allSkills())
+        val written = history.record(recordingTime(record), gameData.allSkills())
         if (written > 0) { log.info("Recorded {} skill changes", written) }
 
         val missing = gameData.playersMissingStats()
@@ -128,6 +133,25 @@ class Ledger(liveDatabase: Path, dataDir: Path, copy: CopyConfig, equipmentTab: 
             log.warn("Players with ids {} have no maxstats or curstats row, so their pages say there's no such player", missing)
         }
         missingStats = missing
+    }
+
+    /**
+     * When [record]'s changes are recorded: the server's save time, the file's modified time,
+     * unless that's after the copy was made. A save is never after the clock that wrote it, so
+     * such a file was stamped by another clock, such as one restored from a machine whose clock
+     * was ahead. Stamped that late, history would hide its gains until the clock got there and
+     * refuse every save before then, so it's recorded at the copy's time instead.
+     */
+    private fun recordingTime(record: CopyRecord): Instant {
+        val ahead = record.liveModified > record.copiedAt
+        if (ahead && !fileTimeAhead) {
+            log.warn(
+                "The server's database file is stamped {}, {} after this machine's clock, so its changes are recorded at {} instead",
+                record.liveModified, record.liveModified - record.copiedAt, record.copiedAt,
+            )
+        }
+        fileTimeAhead = ahead
+        return if (ahead) record.copiedAt else record.liveModified
     }
 }
 

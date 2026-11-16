@@ -9,6 +9,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.ExperimentalPathApi
+import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.time.toKotlinInstant
 
@@ -18,6 +19,8 @@ import kotlin.time.toKotlinInstant
  * name) are shown as the ledger would use them; the game database is copied once into a new
  * folder from [makeTempFolder], with the same copier and checks the ledger uses, and read from
  * there; the data folder is checked and its history file read without changing either.
+ * History recorded later than [clock]'s time is pointed out, since nothing new can be recorded
+ * until the clock gets there.
  *
  * Counts and times only, never a player's name or anything about one player. The temporary
  * copy holds the whole game database, so its folder is deleted however the check ends: on
@@ -29,6 +32,7 @@ fun check(
     configPath: Path,
     config: LedgerConfig,
     server: OpenRscServer,
+    clock: Clock = Clock.System,
     makeTempFolder: () -> Path = { Files.createTempDirectory("ledger-check") },
 ): String {
     val live = server.database()
@@ -38,7 +42,7 @@ fun check(
     try {
         val game = readGame(live, folder.resolve("server-copy.db"), server.equipmentTab)
         val history = readDataFolder(config.dataDir)
-        return report(configPath, config, server, live, game, history)
+        return report(configPath, config, server, live, game, history, clock.now())
     } finally {
         deleteFolder(folder)
         try {
@@ -98,13 +102,26 @@ private fun readDataFolder(dataDir: Path): HistorySummary? {
     return HistorySummary.read(dataDir.resolve("history.db"))
 }
 
-private fun report(configPath: Path, config: LedgerConfig, server: OpenRscServer, live: Path, game: GameCounts, history: HistorySummary?): String {
+private fun report(
+    configPath: Path,
+    config: LedgerConfig,
+    server: OpenRscServer,
+    live: Path,
+    game: GameCounts,
+    history: HistorySummary?,
+    now: Instant,
+): String {
     val historyFile = config.dataDir.resolve("history.db")
-    val historyLine = when {
+    var historyLine = when {
         history == null && !Files.exists(config.dataDir) -> "None yet: the data folder doesn't exist, and the ledger will make it"
         history == null -> "None yet: no history file, and the ledger will start one"
         history.values == 0 -> "None recorded yet"
         else -> "${history.values} recorded values for ${history.players} players, from ${history.oldest} to ${history.newest}"
+    }
+    // Recorded by a clock that was ahead and has since been put right: history stays in order, so nothing is added until then.
+    val newest = history?.newest
+    if (newest != null && newest > now) {
+        historyLine += "\n  The newest is ${newest - now} after this machine's clock ($now), so nothing new is recorded until then"
     }
     return """
         |Settings, from $configPath

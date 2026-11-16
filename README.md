@@ -103,7 +103,9 @@ database once into a new temporary folder and reads that copy, and reads the his
 without changing it (a missing one is reported, not created). It prints the settings it
 would use, the database's last save time, and counts only: players (staff, online at the
 last save, missing a stat row), item slots held and kinds of item, and the history's
-recorded values with their oldest and newest times. It never prints a player's name. It
+recorded values with their oldest and newest times. If the newest is later than this
+machine's clock, it says by how much: nothing new is recorded until the clock gets there
+(see *It keeps its own history*). It never prints a player's name. It
 exits 0, or 1 with the same one-line message start-up would give at the first problem. It
 leaves the data folder as it was, and deletes its temporary copy when it ends, on an error
 or Ctrl-C too (only a `kill -9` can leave it behind).
@@ -180,8 +182,13 @@ say), it's tried again at each check, still stamped with that copy's save time, 
 works or a newer copy takes its place. A database saved no later than the newest
 recording, such as one restored from a backup that kept its old file time, records
 nothing that time, with a warning; the server's next save records whatever still differs.
-A history file that isn't a SQLite database, or a data folder that is a file or can't be
-written, stops the ledger at start-up with one line naming it.
+A database file stamped later than the machine's clock, such as one copied or restored from
+a machine whose clock was ahead, is recorded at the copy's time instead, with one warning
+naming the gap, so its gains show at once and later saves are still recorded. History
+already stamped ahead, by a clock that ran fast and was put right, can't be moved, so
+nothing new is recorded until the clock passes it; `--check` points that out. A history
+file that isn't a SQLite database, or a data folder that is a file or can't be written,
+stops the ledger at start-up with one line naming it.
 
 **Players missing a stat row.** The server makes a player's `experience`, `maxstats` and
 `curstats` rows together, so only old or hand-edited data lacks one. A player with no

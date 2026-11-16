@@ -21,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -42,9 +43,9 @@ class CheckTest {
         return dir.resolve("ledger.conf").also { it.writeText("openrsc.dir = openrsc\nport = 9123\n$settings") }
     }
 
-    private fun runCheck(conf: Path): String {
+    private fun runCheck(conf: Path, clock: Clock = Clock.System): String {
         val (config, server) = loadSettings(conf)
-        return check(conf, config, server) { createTempDirectory("ledger-check").also(tempFolders::add) }
+        return check(conf, config, server, clock) { createTempDirectory("ledger-check").also(tempFolders::add) }
     }
 
     private fun refusal(conf: Path): String = assertFailsWith<IllegalArgumentException> { runCheck(conf) }.message!!
@@ -124,6 +125,23 @@ class CheckTest {
         assertEquals("the ledger's own copy", Files.readString(copy))
         assertEquals(setOf("history.db", "server-copy.db"), Files.list(dataDir).use { files -> files.map { it.fileName.toString() }.toList().toSet() })
         assertTempFoldersGone()
+    }
+
+    @Test
+    fun `points out history recorded later than this machine's clock, and only then`() {
+        val conf = site()
+        val history = HistoryStore(dataDir.resolve("history.db"))
+        history.record(Instant.parse("2026-02-02T08:00:00Z"), listOf(PlayerSkills(1, Skill.entries.associateWith { SkillValue(0, 1) })))
+        val clockAt = { at: String -> object : Clock { override fun now() = Instant.parse(at) } }
+
+        val output = runCheck(conf, clockAt("2026-02-02T05:30:00Z"))
+        assertContains(
+            output,
+            "to 2026-02-02T08:00:00Z\n  The newest is 2h 30m after this machine's clock (2026-02-02T05:30:00Z), so nothing new is recorded until then\n",
+        )
+        for (at in listOf("2026-02-02T08:00:00Z", "2026-02-03T00:00:00Z")) {
+            assertFalse("after this machine's clock" in runCheck(conf, clockAt(at)), "with the clock at $at")
+        }
     }
 
     @Test
