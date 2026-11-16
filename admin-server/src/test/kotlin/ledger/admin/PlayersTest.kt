@@ -4,13 +4,21 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.jsonArray
+import ledger.admin.routes.NO_SUCH_PLAYER
 import ledger.core.game.SqliteGameData
+import java.sql.DriverManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class PlayersTest {
-    private val game = SqliteGameData(testDatabase())
+    private val copy = testDatabase()
+    private val game = SqliteGameData(copy)
+
+    /** Runs [statement] on the test database, for a test that needs it changed. */
+    private fun change(statement: String) {
+        DriverManager.getConnection("jdbc:sqlite:$copy").use { it.createStatement().executeUpdate(statement) }
+    }
 
     @Test
     fun `lists every player`() = adminTest(game) {
@@ -32,6 +40,40 @@ class PlayersTest {
     }
 
     @Test
+    fun `a search that matches nobody lists no one, and a blank search lists everyone`() = adminTest(game) {
+        val response = client.get("/api/players?search=nobody")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals("""{"players":[]}""", response.bodyAsText())
+
+        val everyone = listOf("Bramblewick", "Oakhollow", "Tansy Moss")
+        assertEquals(everyone, getJson("/api/players?search=")["players"].strings("name"))
+        assertEquals(everyone, getJson("/api/players?search=%20%20")["players"].strings("name"))
+    }
+
+    @Test
+    fun `search takes wildcard characters literally, sent through the URL`() {
+        change("UPDATE players SET username = 'Fern_100%' WHERE id = 2")
+        adminTest(game) {
+            // %25 is a percent sign in a URL.
+            assertEquals(emptyList(), getJson("/api/players?search=%25%25")["players"].strings("name"))
+            assertEquals(emptyList(), getJson("/api/players?search=k_")["players"].strings("name"))
+            assertEquals(listOf("Fern_100%"), getJson("/api/players?search=n_100%25")["players"].strings("name"))
+        }
+    }
+
+    @Test
+    fun `a player who never logged in has a null last login, on the list and their page`() {
+        change("UPDATE players SET login_date = 0 WHERE id = 2")
+        adminTest(game) {
+            val tansy = """{"id":2,"name":"Tansy Moss","combatLevel":3,"totalLevel":27,"lastLogin":null,"online":false}"""
+            val list = client.get("/api/players").bodyAsText()
+            assertTrue(tansy in list, list)
+            val page = client.get("/api/players/2").bodyAsText()
+            assertTrue(page.startsWith("""{"player":$tansy,"""), page)
+        }
+    }
+
+    @Test
     fun `a player's page shows experience as players see it, every skill, and quests`() = adminTest(game) {
         val body = client.get("/api/players/1").bodyAsText()
         assertTrue(body.startsWith("""{"player":{"id":1,"name":"Bramblewick","""), body)
@@ -42,9 +84,66 @@ class PlayersTest {
     }
 
     @Test
+    fun `a player's skills come in the game's order`() = adminTest(game) {
+        val skills = getJson("/api/players/1")["skills"]
+        assertEquals(
+            listOf(
+                "attack", "defense", "strength", "hits", "ranged", "prayer", "magic", "cooking", "woodcut", "fletching",
+                "fishing", "firemaking", "crafting", "smithing", "mining", "herblaw", "agility", "thieving", "harvesting", "runecraft",
+            ),
+            skills.strings("skill"),
+        )
+        assertEquals("Woodcutting", skills.strings("name")[8])
+    }
+
+    @Test
+    fun `a boosted or drained skill shows its level now and its full level apart`() {
+        // Woodcutting boosted from 30 to 33; Attack drained from 7 to 5.
+        change("UPDATE maxstats SET woodcut = 30, attack = 7 WHERE playerID = 1")
+        change("UPDATE curstats SET woodcut = 33, attack = 5 WHERE playerID = 1")
+        change("UPDATE experience SET woodcut = 53620 WHERE playerID = 1")
+        adminTest(game) {
+            val body = client.get("/api/players/1").bodyAsText()
+            assertTrue("""{"skill":"woodcut","name":"Woodcutting","level":33,"fullLevel":30,"experience":13405}""" in body, body)
+            assertTrue("""{"skill":"attack","name":"Attack","level":5,"fullLevel":7,"experience":0}""" in body, body)
+        }
+    }
+
+    @Test
+    fun `an item or quest the game data can't name is listed with a null name`() {
+        // Item 9999 and quest 999 are past the end of the game data.
+        change("INSERT INTO itemstatuses (itemID, catalogID, amount) VALUES (401, 9999, 3), (402, 9999, 1)")
+        change("INSERT INTO invitems (playerID, itemID, slot) VALUES (2, 401, 0)")
+        change("INSERT INTO bank (playerID, itemID, slot) VALUES (2, 402, 0)")
+        change("INSERT INTO quests (playerID, id, stage) VALUES (2, 999, 4)")
+        adminTest(game) {
+            val body = client.get("/api/players/2").bodyAsText()
+            assertTrue(""""quests":[{"id":999,"name":null,"stage":4,"complete":false}]""" in body, body)
+            assertTrue(""""inventory":[{"slot":0,"itemId":9999,"name":null,"amount":3,"noted":false,"worn":false}]""" in body, body)
+            assertTrue(""""bank":[{"slot":0,"itemId":9999,"name":null,"amount":1,"noted":false,"worn":false}]""" in body, body)
+        }
+    }
+
+    @Test
+    fun `a player with nothing has no quest points and empty lists, not missing ones`() = adminTest(game) {
+        val body = client.get("/api/players/2").bodyAsText()
+        assertTrue(""""questPoints":0,""" in body, body)
+        assertTrue(body.endsWith(""""quests":[],"equipment":[],"inventory":[],"bank":[]}"""), body)
+    }
+
+    @Test
     fun `an unknown player is not found`() = adminTest(game) {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/players/99").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/api/players/not-a-number").status)
+    }
+
+    @Test
+    fun `a negative id, or one too large for a player id, is not found and says why`() = adminTest(game) {
+        for (id in listOf("-1", "0", "2147483648", "99999999999999999999")) {
+            val response = client.get("/api/players/$id")
+            assertEquals(HttpStatusCode.NotFound, response.status, id)
+            assertEquals("""{"message":"$NO_SUCH_PLAYER"}""", response.bodyAsText(), id)
+        }
     }
 
     @Test
