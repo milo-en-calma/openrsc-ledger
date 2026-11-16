@@ -42,6 +42,7 @@ data class LeaderboardEntry(
 )
 
 const val NO_SUCH_BOARD = "There's no leaderboard by that name."
+const val BAD_STAFF = "Give `staff` as true or false."
 
 private val boards = listOf(Board(OVERALL, "Overall")) + Skill.entries.map { Board(it.column, it.displayName) }
 
@@ -77,6 +78,10 @@ fun Route.leaderboardRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
                 description = "There's no board by that name."
                 body<NoData>()
             }
+            code(HttpStatusCode.BadRequest) {
+                description = "`staff` was given as something other than true or false."
+                body<NoData>()
+            }
             code(HttpStatusCode.ServiceUnavailable) {
                 description = "The ledger hasn't copied the server's database yet."
                 body<NoData>()
@@ -88,11 +93,19 @@ fun Route.leaderboardRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
             call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_BOARD))
             return@get
         }
+        // Unreadable, `staff` is an error, so a typo such as staff=1 can't pass for a board without staff.
+        val includeStaff = when (call.request.queryParameters["staff"]) {
+            null, "false" -> false
+            "true" -> true
+            else -> {
+                call.respond(HttpStatusCode.BadRequest, NoData(BAD_STAFF))
+                return@get
+            }
+        }
         if (lastCopy() == null) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
         }
-        val includeStaff = call.request.queryParameters["staff"] == "true"
         val players = gameData.players().filter { includeStaff || !it.staff }
         val skills = gameData.allSkills()
         val standings = when (board.key) {

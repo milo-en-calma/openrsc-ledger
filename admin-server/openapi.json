@@ -197,6 +197,17 @@
               }
             }
           },
+          "400" : {
+            "description" : "`staff` was given as something other than true or false.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
+                }
+              }
+            }
+          },
           "503" : {
             "description" : "The ledger hasn't copied the server's database yet.",
             "headers" : { },
