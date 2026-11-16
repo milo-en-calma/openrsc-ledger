@@ -170,10 +170,30 @@ function GainedTodayBoard({ showStaff }: { showStaff: boolean }) {
     );
   }
 
-  const rows = totalPerPlayer(gains.data);
+  const rows = totalPerPlayer(gains.data.gains);
+  const countedSince = gains.data.countedSince && (
+    <Text size="sm" c="dimmed">
+      {gains.data.countedSince}
+    </Text>
+  );
   if (rows.length === 0) {
-    return <Text c="dimmed">No experience gained yet today.</Text>;
+    return (
+      <Stack gap="xs">
+        <Text c="dimmed">No experience gained yet today.</Text>
+        {countedSince}
+      </Stack>
+    );
   }
+  return (
+    <Stack gap="xs">
+      <GainedTodayTable rows={rows} />
+      {countedSince}
+    </Stack>
+  );
+}
+
+/** The board of experience gained today, one row per player, as [totalPerPlayer] ranks them. */
+function GainedTodayTable({ rows }: { rows: ReturnType<typeof totalPerPlayer> }) {
   return (
     <Table.ScrollContainer minWidth={420} type="native">
       <Table striped highlightOnHover>

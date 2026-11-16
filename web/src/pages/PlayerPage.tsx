@@ -1,4 +1,4 @@
-import { Alert, Anchor, Badge, Group, Loader, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Badge, Group, Loader, SimpleGrid, Stack, Table, Text, Title, Tooltip, VisuallyHidden } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import type { components } from "../../generated/openapi";
@@ -7,6 +7,25 @@ import { type SkillGain, useGains } from "../api/gains";
 
 type Skill = components["schemas"]["SkillRow"];
 type Item = components["schemas"]["ItemRow"];
+
+/**
+ * The "Today" column's heading. When history began after midnight it carries [countedSince] as a
+ * tooltip, shown on hover, focus or touch, and the heading is underlined with dots to say there's one;
+ * screen readers read the note with the heading.
+ */
+function TodayHeading({ countedSince }: { countedSince: string | null }) {
+  if (!countedSince) {
+    return "Today";
+  }
+  return (
+    <Tooltip label={countedSince} events={{ hover: true, focus: true, touch: true }} multiline maw={260}>
+      <Text span inherit tabIndex={0} style={{ textDecoration: "underline dotted", cursor: "help" }}>
+        Today
+        <VisuallyHidden>. {countedSince}</VisuallyHidden>
+      </Text>
+    </Tooltip>
+  );
+}
 
 /** Experience gained per skill key, from one period's gains. */
 function gainedBySkill(gains: SkillGain[] | undefined): Map<string, number> {
@@ -17,8 +36,9 @@ export function PlayerPage() {
   const id = Number(useParams().id);
   // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
   // A player's own page shows their gains whether or not they're staff.
-  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true }).data);
-  const today = gainedBySkill(useGains("today", { player: id, staff: true }).data);
+  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true }).data?.gains);
+  const todayGains = useGains("today", { player: id, staff: true }).data;
+  const today = gainedBySkill(todayGains?.gains);
 
   const page = useQuery({
     queryKey: ["player", id],
@@ -70,7 +90,9 @@ export function PlayerPage() {
                   <Table.Th ta="right">Level</Table.Th>
                   <Table.Th ta="right">Experience</Table.Th>
                   <Table.Th ta="right">Last hour</Table.Th>
-                  <Table.Th ta="right">Today</Table.Th>
+                  <Table.Th ta="right">
+                    <TodayHeading countedSince={todayGains?.countedSince ?? null} />
+                  </Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
