@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # The openrsc-ledger launcher.
 #
-#   ./ledger up [--no-browser]
+#   ./ledger up [--no-browser] [--ledger-only]
 #   ./ledger logs
 #
 # up starts the OpenRSC game server, if it isn't already running, and then the ledger, both
-# with the world named in ledger.conf, and opens the ledger in a browser. Ctrl-C stops the
-# ledger only: the game server can't be stopped from outside without losing what players
-# did since its last save, so it is left running (see stop_ledger below).
+# with the world named in ledger.conf, and opens the ledger in a browser. With --ledger-only
+# it starts the ledger alone and leaves the game server as it is, running or not. Ctrl-C
+# stops the ledger only: the game server can't be stopped from outside without losing what
+# players did since its last save, so it is left running (see stop_ledger below).
 #
 # logs follows the game server's own log, however the server was started.
 set -euo pipefail
@@ -21,12 +22,16 @@ die() { printf 'ledger: %s\n' "$*" >&2; exit 1; }
 
 usage() {
     cat <<'EOF'
-Usage: ./ledger up [--no-browser]
+Usage: ./ledger up [--no-browser] [--ledger-only]
        ./ledger logs
 
 up    Starts the OpenRSC game server (unless it is already running) and the ledger, then
       opens the ledger in a browser. Ctrl-C stops the ledger and leaves the game server
       running.
+      --no-browser   Don't open the browser.
+      --ledger-only  Start only the ledger, and never the game server, even if it isn't
+                     running. The ledger reads a copy of the server's database, so it runs
+                     with the server stopped; it just has nothing new to record.
 logs  Follows the game server's own log (server/logs/<world>_<n>.log), however the server
       was started. Ctrl-C stops following and leaves the game server running.
 
@@ -99,6 +104,10 @@ open_browser() {
 }
 
 server_note() {
+    if ! port_open "$game_port"; then
+        say "The game server isn't running on port $game_port."
+        return 0
+    fi
     say "The game server is still running on port $game_port."
     say "To stop it with every player saved, log in as an admin and type ::shutdown (a"
     say "countdown, then everyone is saved and logged out). Stopping its process instead"
@@ -147,14 +156,21 @@ load_settings() {
 }
 
 up() {
-    local open_it=1
+    local open_it=1 ledger_only=0
     for arg in "$@"; do
         case "$arg" in
             --no-browser) open_it=0 ;;
+            --ledger-only) ledger_only=1 ;;
             *) usage >&2; exit 2 ;;
         esac
     done
     load_settings build
+
+    # Otherwise the health check below would pass against the ledger already running, while
+    # the new one fails to take the port and exits.
+    if port_open "$ledger_port"; then
+        die "Something is already listening on port $ledger_port; is a ledger running? Stop it first."
+    fi
 
     # Each process started from here gets a process group of its own, so the Ctrl-C the
     # terminal sends reaches only this script, which then decides what to stop. Without
@@ -162,7 +178,14 @@ up() {
     set -m
     trap 'stop_ledger 0' INT TERM
 
-    if port_open "$game_port"; then
+    if [ "$ledger_only" = 1 ]; then
+        if port_open "$game_port"; then
+            say "The game server is running on port $game_port; starting only the ledger, as asked."
+        else
+            say "The game server isn't running, and --ledger-only leaves it so; starting only the ledger."
+            say "Until the server runs, the ledger serves the last copy of its database."
+        fi
+    elif port_open "$game_port"; then
         say "The game server is already running on port $game_port; starting only the ledger."
     else
         command -v ant >/dev/null 2>&1 || die "ant isn't installed; OpenRSC's server is started with it."
@@ -202,7 +225,11 @@ up() {
     JAVA_HOME="$java_home" "$app" "$conf" &
     ledger_pid=$!
     wait_for 120 "$ledger_pid" ledger_health || stop_ledger 1
-    say "The ledger is up. Ctrl-C stops it and leaves the game server running."
+    if port_open "$game_port"; then
+        say "The ledger is up. Ctrl-C stops it and leaves the game server running."
+    else
+        say "The ledger is up. Ctrl-C stops it."
+    fi
     if [ "$open_it" = 1 ]; then open_browser "http://127.0.0.1:$ledger_port/"; fi
 
     # Until Ctrl-C, or the ledger stopping by itself.

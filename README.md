@@ -39,7 +39,14 @@ cp ledger.conf.example ledger.conf     # then set openrsc.dir; every setting is 
 `./ledger up` builds the ledger if anything changed, starts the OpenRSC game server if it
 isn't already running, starts the ledger, and opens it in a browser
 (<http://127.0.0.1:8080>, or whichever `port` you set). Add `--no-browser` to skip that.
-It reads `ledger.conf` beside the script, or the file named by `$LEDGER_CONF`.
+It reads `ledger.conf` beside the script, or the file named by `$LEDGER_CONF`. It stops
+at once if something already listens on the ledger's port, such as a ledger started
+earlier.
+
+`./ledger up --ledger-only` starts the ledger alone and never starts the game server,
+for times the server is meant to stay stopped. The ledger reads a copy of the server's
+database, so it runs fine without the server; it serves the last copy and has nothing new
+to record until the server runs again.
 
 - **The game server** is started the way OpenRSC's own launcher does,
   `ant runserver -DconfFile=<openrsc.world>` in its `server/` folder, with whichever Java
@@ -174,7 +181,7 @@ The running server also serves the spec at `/api/openapi.json`.
 
 | Path | What's in it |
 |---|---|
-| `ledger` | The launcher: `./ledger up` and `./ledger logs` |
+| `ledger` | The launcher: `./ledger up` (`--ledger-only` for the ledger alone) and `./ledger logs` |
 | `scripts/` | The launcher's helpers: `ant-filter.awk`, which picks the lines of Ant's output kept in `data/game-server.log` |
 | `core/` | Kotlin code shared by every build of the app: settings, finding and copying the game's database, reading it (with [Exposed](https://github.com/JetBrains/Exposed)), and keeping the skill history. Its `src/testFixtures` builds a test database of invented players |
 | `admin-server/` | The admin console's server ([Ktor](https://ktor.io)), serving the API and the built frontend |
