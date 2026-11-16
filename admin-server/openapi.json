@@ -2,7 +2,7 @@
   "openapi" : "3.1.0",
   "info" : {
     "title" : "openrsc-ledger admin API",
-    "description" : "Read-only stats for an OpenRSC server. Errors answer as `{\"message\": \"…\"}`, saying what was wrong; any address under `/api` not listed here answers 404 with \"No such API route.\"",
+    "description" : "Read-only stats for an OpenRSC server. Errors answer as `{\"message\": \"…\"}`, saying what was wrong; any address under `/api` not listed here answers 404 with \"No such API route.\", and a query value given more than once answers 400, naming it. An address that can't be read at all, such as one with a broken %-escape or a request line over 4,096 bytes, gets a plain-text 400 from the web server instead.",
     "version" : "0.1.0"
   },
   "externalDocs" : {
@@ -55,6 +55,17 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PlayerList"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "`search` holds a control character, such as a NUL or a line break, which no name can.",
+            "headers" : { },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoData"
                 }
               }
             }

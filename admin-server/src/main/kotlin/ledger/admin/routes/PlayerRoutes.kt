@@ -92,6 +92,7 @@ data class NoData(val message: String)
 
 const val NO_COPY_YET = "The ledger hasn't copied the server's database yet."
 const val NO_SUCH_PLAYER = "There's no player with that id."
+const val BAD_SEARCH = "Give `search` as plain text."
 
 /** The player list and player pages. Both answer 503 until the ledger has copied the server's database for the first time. */
 fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: GameNames) {
@@ -108,17 +109,27 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: G
                 description = "The players, from the latest copy of the server's database."
                 body<PlayerList>()
             }
+            code(HttpStatusCode.BadRequest) {
+                description = "`search` holds a control character, such as a NUL or a line break, which no name can."
+                body<NoData>()
+            }
             code(HttpStatusCode.ServiceUnavailable) {
                 description = "The ledger hasn't copied the server's database yet."
                 body<NoData>()
             }
         }
     }) {
+        // SQLite stops reading a pattern at a NUL, so such a search would quietly list everyone.
+        val search = call.request.queryParameters["search"]
+        if (search != null && search.any { it.isISOControl() }) {
+            call.respond(HttpStatusCode.BadRequest, NoData(BAD_SEARCH))
+            return@get
+        }
         if (lastCopy() == null) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
         }
-        val players = gameData.players(call.request.queryParameters["search"])
+        val players = gameData.players(search)
         call.respond(PlayerList(players.map { it.toListItem() }))
     }
 

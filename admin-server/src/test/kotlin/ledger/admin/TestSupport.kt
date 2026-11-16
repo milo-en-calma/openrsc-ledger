@@ -70,7 +70,7 @@ data class SpecRoute(val path: String, val url: String, val statuses: Set<String
  * A value for each parameter a route may take, chosen so each route answers with data
  * from the test database: a player and an item it has, and a period in 2026.
  */
-private val sampleValues = mapOf(
+val sampleValues = mapOf(
     "id" to "1",
     "itemId" to "10",
     "board" to "overall",

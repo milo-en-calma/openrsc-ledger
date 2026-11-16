@@ -249,10 +249,13 @@ The running server also serves the spec at `/api/openapi.json`.
 
 Errors answer as `{"message": "…"}`, saying what was wrong. A query value that can't be
 read (`staff=1` rather than `true`, a player id that isn't a number, a time that isn't
-ISO-8601) gets 400 rather than being passed over, so a typo in a link never shows data
-that looks real. Any address under `/api` that isn't a route gets 404 "No such API
-route."; other addresses get the frontend's page, so reloading a page in the browser
-works.
+ISO-8601, a player search holding a control character such as a NUL) gets 400 rather than
+being passed over, so a typo in a link never shows data that looks real. So does a query
+value given twice (`staff=true&staff=false`), naming it: "Give `staff` once." Any address
+under `/api` that isn't a route gets 404 "No such API route."; other addresses get the
+frontend's page, so reloading a page in the browser works. An address the web server can't
+read at all (a broken %-escape such as `%zz`, or a request line over 4,096 bytes) gets a
+plain-text 400 from it before the ledger sees it.
 
 ## Layout
 

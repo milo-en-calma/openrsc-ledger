@@ -7,9 +7,11 @@ import io.github.smiley4.schemakenerator.swagger.data.RefType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.application.install
 import io.ktor.server.http.content.staticResources
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
@@ -29,6 +31,9 @@ const val OPENAPI_PATH = "/api/openapi.json"
 
 const val NO_SUCH_API_ROUTE = "No such API route."
 
+/** What a query value given more than once answers, naming it. */
+fun givenTwice(name: String) = "Give `$name` once."
+
 /**
  * Everything the admin console serves: the API, its spec and the built frontend.
  * [lastCopy] gives the newest copy of the server's database, or null before the first;
@@ -47,7 +52,9 @@ fun Application.adminModule(
             title = "openrsc-ledger admin API"
             version = "0.1.0"
             description = "Read-only stats for an OpenRSC server. Errors answer as `{\"message\": \"…\"}`, saying what was wrong; " +
-                "any address under `/api` not listed here answers 404 with \"No such API route.\""
+                "any address under `/api` not listed here answers 404 with \"No such API route.\", and a query value given more " +
+                "than once answers 400, naming it. An address that can't be read at all, such as one with a broken %-escape " +
+                "or a request line over 4,096 bytes, gets a plain-text 400 from the web server instead."
         }
         // Schemas named after the class alone (`Health`, not `ledger.admin.routes.Health`),
         // since the frontend's generated types are named after them.
@@ -59,6 +66,17 @@ fun Application.adminModule(
         }
         // Only the API; the frontend's catch-all route isn't part of it.
         pathFilter = { _, url -> url.firstOrNull() == "api" }
+    }
+
+    // A query value given twice is a mistake in the link: say so, rather than quietly use one of them.
+    intercept(ApplicationCallPipeline.Plugins) {
+        val request = context.request
+        if (!request.path().startsWith("/api/")) { return@intercept }
+        val doubled = request.queryParameters.names().firstOrNull { request.queryParameters.getAll(it).orEmpty().size > 1 }
+        if (doubled != null) {
+            context.respond(HttpStatusCode.BadRequest, NoData(givenTwice(doubled)))
+            finish()
+        }
     }
 
     routing {
