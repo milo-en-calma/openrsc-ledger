@@ -21,6 +21,13 @@ interface HistoryReader {
      */
     fun changes(from: Instant, to: Instant): List<SkillChange>
 
+    /**
+     * [changes], only for [playerId] and [skill] where they're given. A reader that can pick
+     * them out as it reads, as [HistoryStore] does, answers without reading the rest.
+     */
+    fun changes(from: Instant, to: Instant, playerId: Int?, skill: Skill?): List<SkillChange> =
+        changes(from, to).filter { (playerId == null || it.playerId == playerId) && (skill == null || it.skill == skill) }
+
     companion object {
         /** No history at all. */
         val NONE: HistoryReader = object : HistoryReader {

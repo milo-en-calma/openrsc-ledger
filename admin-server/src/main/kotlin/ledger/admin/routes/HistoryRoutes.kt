@@ -127,8 +127,7 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
         }
 
         val players = gameData.players().associateBy { it.id }
-        val gains = history.changes(from, to)
-            .filter { (skill == null || it.skill == skill) && (playerId == null || it.playerId == playerId) }
+        val gains = history.changes(from, to, playerId, skill)
             .filter { includeStaff || players[it.playerId]?.staff != true }
             // A drop isn't a gain; it stays in the history, but a minus number on a board reads as a bug.
             .filter { it.end.experience >= it.start.experience }

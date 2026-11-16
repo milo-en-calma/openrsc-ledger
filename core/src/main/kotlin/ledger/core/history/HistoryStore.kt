@@ -3,14 +3,10 @@ package ledger.core.history
 import ledger.core.game.PlayerSkills
 import ledger.core.game.Skill
 import ledger.core.game.SkillValue
-import org.jetbrains.exposed.v1.core.Expression
-import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greater
-import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.min
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -24,6 +20,8 @@ import java.io.IOException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.sql.Connection
+import java.sql.ResultSet
 import java.sql.SQLException
 import kotlin.time.Instant
 
@@ -80,48 +78,59 @@ class HistoryStore(file: Path) : HistoryReader {
     }
 
     /**
+     * The newest recorded value of every player's every skill, read from the file once, here,
+     * and kept up to date by [record], so recording a copy never rereads the file. Only this
+     * object writes the file. Guarded by itself.
+     */
+    private val newest: MutableMap<Pair<Int, Skill>, SkillValue> = transaction(database) { newestValues() }.toMutableMap()
+
+    /**
      * Records, as at [at], each skill in [current] whose value differs from the newest one
      * recorded for that player, or that has none yet. Returns how many rows it wrote.
      *
      * It compares with what's recorded rather than with the previous copy, so changes
      * made while the ledger was stopped, or at a copy whose recording failed, are caught
-     * at the next one.
+     * at the next one: the newest values in memory change only once a write has committed.
      *
      * Changes stamped at or before the newest recording aren't recorded, so history is never
      * written out of order; a warning says so. That happens when the server's database file
      * goes back in time, such as one restored from a backup that kept its old time. It heals
      * itself: the server's next save is stamped later, and records whatever still differs.
      */
-    fun record(at: Instant, current: List<PlayerSkills>): Int = transaction(database) {
-        val newest = newestValues()
+    fun record(at: Instant, current: List<PlayerSkills>): Int = synchronized(newest) {
         val changes = current.flatMap { player ->
             player.skills.filter { (skill, value) -> newest[player.playerId to skill] != value }
                 .map { (skill, value) -> Triple(player.playerId, skill, value) }
         }
-        if (changes.isEmpty()) { return@transaction 0 }
+        if (changes.isEmpty()) { return 0 }
 
-        val newestTime = newestRecordedAt()
-        if (newestTime != null && at <= newestTime) {
-            log.warn(
-                "The server's database was saved at {}, not after the newest recording at {}, so its {} skill changes weren't recorded; " +
-                    "the server's next save will record whatever still differs",
-                at, newestTime, changes.size,
-            )
-            return@transaction 0
-        }
+        val written = transaction(database) {
+            val newestTime = newestRecordedAt()
+            if (newestTime != null && at <= newestTime) {
+                log.warn(
+                    "The server's database was saved at {}, not after the newest recording at {}, so its {} skill changes weren't recorded; " +
+                        "the server's next save will record whatever still differs",
+                    at, newestTime, changes.size,
+                )
+                return@transaction false
+            }
 
-        SkillHistory.batchInsert(changes, shouldReturnGeneratedValues = false) { (playerId, skill, value) ->
-            this[SkillHistory.playerId] = playerId
-            this[SkillHistory.skill] = skill.column
-            this[SkillHistory.experience] = value.experience
-            this[SkillHistory.level] = value.level
-            this[SkillHistory.recordedAt] = at.toEpochMilliseconds()
+            SkillHistory.batchInsert(changes, shouldReturnGeneratedValues = false) { (playerId, skill, value) ->
+                this[SkillHistory.playerId] = playerId
+                this[SkillHistory.skill] = skill.column
+                this[SkillHistory.experience] = value.experience
+                this[SkillHistory.level] = value.level
+                this[SkillHistory.recordedAt] = at.toEpochMilliseconds()
+            }
+            true
         }
+        if (!written) { return 0 }
+        changes.forEach { (playerId, skill, value) -> newest[playerId to skill] = value }
         changes.size
     }
 
     /** The newest recorded value of every player's every skill. */
-    fun latest(): Map<Pair<Int, Skill>, SkillValue> = transaction(database) { newestValues() }
+    fun latest(): Map<Pair<Int, Skill>, SkillValue> = synchronized(newest) { newest.toMap() }
 
     /** Every value recorded for one player's skill, oldest first. */
     fun values(playerId: Int, skill: Skill): List<Pair<Instant, SkillValue>> = transaction(database) {
@@ -142,40 +151,103 @@ class HistoryStore(file: Path) : HistoryReader {
         return SkillHistory.select(newest).single()[newest]?.let { Instant.fromEpochMilliseconds(it) }
     }
 
-    override fun changes(from: Instant, to: Instant): List<SkillChange> = transaction(database) {
-        val fromMillis = from.toEpochMilliseconds()
-        val toMillis = to.toEpochMilliseconds()
-        val atStart = newestValues { SkillHistory.recordedAt lessEq fromMillis }
-        val atEnd = newestValues { SkillHistory.recordedAt lessEq toMillis }
-        val firstInPeriod = groupedValues(SkillHistory.recordedAt.min()) {
-            (SkillHistory.recordedAt greater fromMillis) and (SkillHistory.recordedAt lessEq toMillis)
-        }
-        atEnd.mapNotNull { (key, end) ->
-            val start = atStart[key] ?: firstInPeriod[key] ?: return@mapNotNull null
-            if (start == end) { return@mapNotNull null }
-            SkillChange(playerId = key.first, skill = key.second, start = start, end = end)
+    override fun changes(from: Instant, to: Instant): List<SkillChange> = changes(from, to, null, null)
+
+    /**
+     * Each recorded player's and skill's change between [from] and [to], as [HistoryReader]
+     * says, for [playerId] and [skill] where given, in order of player and skill. One query
+     * ([changesSql]) that jumps through the table's (player, skill, time) index: from one player
+     * and skill to the next, then to the three rows it needs for each, so its time follows the
+     * number of players and skills, not the number of rows recorded.
+     */
+    override fun changes(from: Instant, to: Instant, playerId: Int?, skill: Skill?): List<SkillChange> = transaction(database) {
+        val connection = this.connection.connection as Connection
+        connection.prepareStatement(changesSql(onePlayer = playerId != null, oneSkill = skill != null)).use { statement ->
+            val fromMillis = from.toEpochMilliseconds()
+            val toMillis = to.toEpochMilliseconds()
+            val parameters = listOfNotNull(playerId?.toLong()) + listOf(toMillis, fromMillis, fromMillis, toMillis)
+            parameters.forEachIndexed { index, value -> statement.setLong(index + 1, value) }
+            if (skill != null) { statement.setString(parameters.size + 1, skill.column) }
+            statement.executeQuery().use { rows ->
+                buildList {
+                    while (rows.next()) {
+                        val rowSkill = skillsByColumn.getValue(rows.getString("skill"))
+                        val end = SkillValue(rows.getInt("end_experience"), rows.getInt("end_level"))
+                        val start = rows.value("start_experience", "start_level") ?: rows.value("first_experience", "first_level") ?: continue
+                        if (start == end) { continue }
+                        add(SkillChange(playerId = rows.getInt("player_id"), skill = rowSkill, start = start, end = end))
+                    }
+                }
+            }
         }
     }
 
-    /** Each player's and skill's newest value among the rows matching [where], or among all rows. */
-    private fun newestValues(where: (() -> Op<Boolean>)? = null) = groupedValues(SkillHistory.recordedAt.max(), where)
+    /** The value in columns [experience] and [level] of this row, or null where the row joined to nothing. */
+    private fun ResultSet.value(experience: String, level: String): SkillValue? {
+        val value = getInt(experience)
+        return if (wasNull()) null else SkillValue(value, getInt(level))
+    }
 
     /**
-     * Each player's and skill's value from the row whose time is picked by [pick], the
-     * MAX() or MIN() of `recorded_at`. In SQLite, a query grouping with MAX() or MIN()
-     * takes the other columns from the row holding that maximum or minimum.
+     * Each player's and skill's newest value. In SQLite, a query grouping with MAX() takes the
+     * other columns from the row holding that maximum. Reads every row, so it runs once, when
+     * the store opens.
      */
-    private fun groupedValues(pick: Expression<Long?>, where: (() -> Op<Boolean>)? = null): Map<Pair<Int, Skill>, SkillValue> {
-        val query = SkillHistory.select(SkillHistory.playerId, SkillHistory.skill, SkillHistory.experience, SkillHistory.level, pick)
-        if (where != null) { query.where(where) }
-        return query.groupBy(SkillHistory.playerId, SkillHistory.skill)
+    private fun newestValues(): Map<Pair<Int, Skill>, SkillValue> =
+        SkillHistory.select(SkillHistory.playerId, SkillHistory.skill, SkillHistory.experience, SkillHistory.level, SkillHistory.recordedAt.max())
+            .groupBy(SkillHistory.playerId, SkillHistory.skill)
             .associate { row ->
                 (row[SkillHistory.playerId] to skillsByColumn.getValue(row[SkillHistory.skill])) to
                     SkillValue(row[SkillHistory.experience], row[SkillHistory.level])
             }
-    }
 
     internal companion object {
+        /**
+         * How [changes] reads the history. `pairs` walks the distinct (player, skill) pairs
+         * through the index, each step one jump: to the same player's next skill, or else to the
+         * next player's first; for [onePlayer], it starts at that player and never steps on to
+         * another. `rows` then jumps, for each pair (of one skill, for [oneSkill]), to its newest
+         * row at or before `to` (the end), its newest at or before `from` (the start), and its
+         * first inside the period (the start, for a skill first recorded then). The parameters,
+         * in order: the player where one is asked for, then `to`, `from`, `from`, `to`, then the
+         * skill where one is asked for.
+         */
+        fun changesSql(onePlayer: Boolean, oneSkill: Boolean): String {
+            val first = if (onePlayer) "player_id = ?" else "player_id >= (SELECT MIN(player_id) FROM skill_history)"
+            val nextPlayer = if (onePlayer) "NULL" else "(SELECT rowid FROM skill_history WHERE player_id > pairs.player_id ORDER BY player_id, skill LIMIT 1)"
+            val skill = if (oneSkill) "WHERE pairs.skill = ?" else ""
+            return """
+            WITH RECURSIVE pairs(player_id, skill) AS (
+                SELECT * FROM (SELECT player_id, skill FROM skill_history
+                    WHERE $first ORDER BY player_id, skill LIMIT 1)
+                UNION ALL
+                SELECT next.player_id, next.skill FROM pairs JOIN skill_history next ON next.rowid = coalesce(
+                    (SELECT rowid FROM skill_history WHERE player_id = pairs.player_id AND skill > pairs.skill ORDER BY skill LIMIT 1),
+                    $nextPlayer
+                )
+            ),
+            rows AS (
+                SELECT player_id, skill,
+                    (SELECT rowid FROM skill_history h WHERE h.player_id = pairs.player_id AND h.skill = pairs.skill AND h.recorded_at <= ?
+                        ORDER BY h.recorded_at DESC LIMIT 1) AS end_row,
+                    (SELECT rowid FROM skill_history h WHERE h.player_id = pairs.player_id AND h.skill = pairs.skill AND h.recorded_at <= ?
+                        ORDER BY h.recorded_at DESC LIMIT 1) AS start_row,
+                    (SELECT rowid FROM skill_history h WHERE h.player_id = pairs.player_id AND h.skill = pairs.skill AND h.recorded_at > ? AND h.recorded_at <= ?
+                        ORDER BY h.recorded_at LIMIT 1) AS first_row
+                FROM pairs $skill
+            )
+            SELECT rows.player_id, rows.skill,
+                e.experience AS end_experience, e.level AS end_level,
+                s.experience AS start_experience, s.level AS start_level,
+                f.experience AS first_experience, f.level AS first_level
+            FROM rows
+            JOIN skill_history e ON e.rowid = rows.end_row
+            LEFT JOIN skill_history s ON s.rowid = rows.start_row
+            LEFT JOIN skill_history f ON f.rowid = rows.first_row
+            ORDER BY rows.player_id, rows.skill
+            """
+        }
+
         private val skillsByColumn = Skill.entries.associateBy { it.column }
         private val log = LoggerFactory.getLogger(HistoryStore::class.java)
 

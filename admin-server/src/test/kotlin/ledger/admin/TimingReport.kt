@@ -228,11 +228,13 @@ class TimingReport {
             "SELECT * FROM quests WHERE playerID = 5",
         )
 
-        /** history.db's queries, as HistoryStore makes them. */
+        /**
+         * history.db's simple queries, as HistoryStore makes them: each player's and skill's
+         * newest value, read once when the store opens, and the newest time, read at each
+         * recording. Core's HistoryReadsTest checks the plan of the gains read.
+         */
         val HISTORY_QUERIES = listOf(
             "SELECT player_id, skill, experience, level, MAX(recorded_at) FROM skill_history GROUP BY player_id, skill",
-            "SELECT player_id, skill, experience, level, MAX(recorded_at) FROM skill_history WHERE recorded_at <= 1 GROUP BY player_id, skill",
-            "SELECT player_id, skill, experience, level, MIN(recorded_at) FROM skill_history WHERE recorded_at > 1 AND recorded_at <= 2 GROUP BY player_id, skill",
             "SELECT MAX(recorded_at) FROM skill_history",
         )
     }
