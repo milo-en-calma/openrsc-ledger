@@ -175,15 +175,16 @@ class HistoryStore(file: Path) : HistoryReader {
             }
     }
 
-    private companion object {
-        val skillsByColumn = Skill.entries.associateBy { it.column }
-        val log = LoggerFactory.getLogger(HistoryStore::class.java)
+    internal companion object {
+        private val skillsByColumn = Skill.entries.associateBy { it.column }
+        private val log = LoggerFactory.getLogger(HistoryStore::class.java)
 
         /** The first 16 bytes of every SQLite database file. */
-        val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
+        private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
 
-        fun isNonEmptyFile(file: Path): Boolean = Files.isRegularFile(file) && Files.size(file) > 0
+        private fun isNonEmptyFile(file: Path): Boolean = Files.isRegularFile(file) && Files.size(file) > 0
 
+        /** Whether [file] starts as every SQLite database does; one that can't be read is an [IllegalArgumentException]. */
         fun hasSqliteHeader(file: Path): Boolean = try {
             Files.newInputStream(file).use { it.readNBytes(SQLITE_HEADER.size) }.contentEquals(SQLITE_HEADER)
         } catch (e: IOException) {

@@ -12,13 +12,13 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-/** How `ledger-admin [--print-launch-settings] [config file]` reads its arguments and settings. */
+/** How `ledger-admin [--print-launch-settings | --check] [config file]` reads its arguments and settings. */
 class MainTest {
     private val flag = "--print-launch-settings"
 
     @Test
     fun `with nothing given it serves, from ledger_conf in the working directory`() {
-        assertEquals(Arguments(printLaunchSettings = false, configPath = Path.of("ledger.conf")), parseArguments(emptyList(), ledgerConf = null))
+        assertEquals(Arguments(Mode.SERVE, configPath = Path.of("ledger.conf")), parseArguments(emptyList(), ledgerConf = null))
     }
 
     @Test
@@ -40,13 +40,13 @@ class MainTest {
 
     @Test
     fun `the flag alone prints the launch settings of the usual config`() {
-        assertEquals(Arguments(printLaunchSettings = true, configPath = Path.of("ledger.conf")), parseArguments(listOf(flag), ledgerConf = null))
-        assertEquals(Arguments(printLaunchSettings = true, configPath = Path.of("site.conf")), parseArguments(listOf(flag), ledgerConf = "site.conf"))
+        assertEquals(Arguments(Mode.PRINT_LAUNCH_SETTINGS, configPath = Path.of("ledger.conf")), parseArguments(listOf(flag), ledgerConf = null))
+        assertEquals(Arguments(Mode.PRINT_LAUNCH_SETTINGS, configPath = Path.of("site.conf")), parseArguments(listOf(flag), ledgerConf = "site.conf"))
     }
 
     @Test
     fun `the flag may come before or after the file`() {
-        val expected = Arguments(printLaunchSettings = true, configPath = Path.of("mine.conf"))
+        val expected = Arguments(Mode.PRINT_LAUNCH_SETTINGS, configPath = Path.of("mine.conf"))
         assertEquals(expected, parseArguments(listOf(flag, "mine.conf"), ledgerConf = null))
         assertEquals(expected, parseArguments(listOf("mine.conf", flag), ledgerConf = null))
     }
@@ -70,8 +70,23 @@ class MainTest {
     }
 
     @Test
-    fun `the usage line names the flag and the file`() {
-        assertEquals("Usage: ledger-admin [--print-launch-settings] [config file]", USAGE)
+    fun `--check checks the given config, or the usual one, the flag before or after the file`() {
+        assertEquals(Arguments(Mode.CHECK, Path.of("ledger.conf")), parseArguments(listOf("--check"), ledgerConf = null))
+        assertEquals(Arguments(Mode.CHECK, Path.of("site.conf")), parseArguments(listOf("--check"), ledgerConf = "site.conf"))
+        assertEquals(Arguments(Mode.CHECK, Path.of("mine.conf")), parseArguments(listOf("--check", "mine.conf"), ledgerConf = null))
+        assertEquals(Arguments(Mode.CHECK, Path.of("mine.conf")), parseArguments(listOf("mine.conf", "--check"), ledgerConf = null))
+    }
+
+    @Test
+    fun `--check and the launch settings flag together are refused, either way round`() {
+        assertEquals("Give --print-launch-settings or --check, not both", refusal("--check", flag))
+        assertEquals("Give --print-launch-settings or --check, not both", refusal(flag, "mine.conf", "--check"))
+        assertEquals("Unknown option --chek", refusal("--chek"))
+    }
+
+    @Test
+    fun `the usage line names both flags and the file`() {
+        assertEquals("Usage: ledger-admin [--print-launch-settings | --check] [config file]", USAGE)
     }
 
     /** A game server checkout, and a ledger.conf beside it holding [settings] after its `openrsc.dir`. */

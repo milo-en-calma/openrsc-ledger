@@ -87,7 +87,27 @@ admin-server/build/install/ledger-admin/bin/ledger-admin
 
 The app looks for its config in its command-line argument, else in the `LEDGER_CONF`
 environment variable (unless it's empty), else in `ledger.conf` in the working directory.
-It takes one config file at most, and refuses any option but `--print-launch-settings`.
+It takes one config file at most, and one of two options:
+`--print-launch-settings`, which prints what `./ledger` needs from the settings and exits,
+and `--check`, below. Any other option is refused.
+
+**`--check` tries a build against your settings and data without serving anything.** Run
+it before moving a running ledger onto a newer build:
+
+```sh
+admin-server/build/install/ledger-admin/bin/ledger-admin --check ledger.conf
+```
+
+It reads `ledger.conf` and the game server's settings as start-up does, copies the game
+database once into a new temporary folder and reads that copy, and reads the history file
+without changing it (a missing one is reported, not created). It prints the settings it
+would use, the database's last save time, and counts only: players (staff, online at the
+last save, missing a stat row), item slots held and kinds of item, and the history's
+recorded values with their oldest and newest times. It never prints a player's name. It
+exits 0, or 1 with the same one-line message start-up would give at the first problem. It
+leaves the data folder as it was, and deletes its temporary copy when it ends, on an error
+or Ctrl-C too (only a `kill -9` can leave it behind).
+
 `ledger.conf` is ignored by git; keep your own settings there. It is
 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md), and only `openrsc.dir`,
 the OpenRSC checkout, is required.

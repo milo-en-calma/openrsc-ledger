@@ -22,26 +22,44 @@ import kotlin.time.Clock
 const val HOST = "127.0.0.1"
 
 private const val PRINT_LAUNCH_SETTINGS = "--print-launch-settings"
+private const val CHECK = "--check"
 
-const val USAGE = "Usage: ledger-admin [$PRINT_LAUNCH_SETTINGS] [config file]"
+const val USAGE = "Usage: ledger-admin [$PRINT_LAUNCH_SETTINGS | $CHECK] [config file]"
 
 private val log = LoggerFactory.getLogger("ledger.admin")
 
-/** What `ledger-admin` was asked to do: read the config at [configPath], and print the launch settings or serve. */
-data class Arguments(val printLaunchSettings: Boolean, val configPath: Path)
+/** What `ledger-admin` was asked to do with the config it reads. */
+enum class Mode {
+    /** Serve the API and the pages. */
+    SERVE,
+    /** Print what the launch script needs ([launchSettings]) and exit. */
+    PRINT_LAUNCH_SETTINGS,
+    /** Read everything once, print what was found ([check]) and exit. */
+    CHECK,
+}
+
+/** What `ledger-admin` was asked to do: read the config at [configPath], and do [mode]. */
+data class Arguments(val mode: Mode, val configPath: Path)
 
 /**
- * Reads `ledger-admin [--print-launch-settings] [config file]`, the flag before or after the
- * file. The config file is the argument, else [ledgerConf] (`$LEDGER_CONF`, unless it's empty,
- * as the launch script reads it), else `ledger.conf` in the working directory. Any other option,
- * or a second file, is an [IllegalArgumentException], so a mistyped flag is never ignored.
+ * Reads `ledger-admin [--print-launch-settings | --check] [config file]`, the flag before or
+ * after the file. The config file is the argument, else [ledgerConf] (`$LEDGER_CONF`, unless
+ * it's empty, as the launch script reads it), else `ledger.conf` in the working directory. Any
+ * other option, both flags, or a second file, is an [IllegalArgumentException], so a mistyped
+ * flag is never ignored.
  */
 fun parseArguments(args: List<String>, ledgerConf: String? = System.getenv("LEDGER_CONF")): Arguments {
-    val files = args.filter { it != PRINT_LAUNCH_SETTINGS }
+    val flags = setOf(PRINT_LAUNCH_SETTINGS, CHECK)
+    val files = args.filter { it !in flags }
     files.firstOrNull { it.startsWith("-") }?.let { throw IllegalArgumentException("Unknown option $it") }
     require(files.size <= 1) { "Give one config file, not two" }
+    require(!(PRINT_LAUNCH_SETTINGS in args && CHECK in args)) { "Give $PRINT_LAUNCH_SETTINGS or $CHECK, not both" }
     return Arguments(
-        printLaunchSettings = PRINT_LAUNCH_SETTINGS in args,
+        mode = when {
+            PRINT_LAUNCH_SETTINGS in args -> Mode.PRINT_LAUNCH_SETTINGS
+            CHECK in args -> Mode.CHECK
+            else -> Mode.SERVE
+        },
         configPath = Path.of(files.singleOrNull() ?: ledgerConf?.ifEmpty { null } ?: "ledger.conf"),
     )
 }
@@ -58,15 +76,16 @@ fun loadSettings(configPath: Path): Pair<LedgerConfig, OpenRscServer> {
 /**
  * Starts the admin console ([parseArguments] says how it's called). With
  * `--print-launch-settings` it prints what the launch script needs ([launchSettings]) and
- * exits instead.
+ * exits instead; with `--check` it reads everything once and prints what it found ([check]).
  */
 fun main(args: Array<String>) {
-    val (printLaunchSettings, configPath) = orExit(withUsage = true) { parseArguments(args.toList()) }
+    val (mode, configPath) = orExit(withUsage = true) { parseArguments(args.toList()) }
 
     val (config, server) = orExit { loadSettings(configPath) }
-    if (printLaunchSettings) {
-        print(orExit { launchSettings(config, server) })
-        return
+    when (mode) {
+        Mode.PRINT_LAUNCH_SETTINGS -> { print(orExit { launchSettings(config, server) }); return }
+        Mode.CHECK -> { print(orExit { check(configPath, config, server) }); return }
+        Mode.SERVE -> {}
     }
 
     val liveDatabase = orExit { server.database() }
