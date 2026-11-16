@@ -3,12 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
+import { type SkillGain, useGains } from "../api/gains";
 
 type Skill = components["schemas"]["SkillRow"];
 type Item = components["schemas"]["ItemRow"];
 
+/** Experience gained per skill key, from one period's gains. */
+function gainedBySkill(gains: SkillGain[] | undefined): Map<string, number> {
+  return new Map((gains ?? []).map((gain) => [gain.skill, gain.experienceGained]));
+}
+
 export function PlayerPage() {
   const id = Number(useParams().id);
+  // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
+  const lastHour = gainedBySkill(useGains("hour", id).data);
+  const today = gainedBySkill(useGains("today", id).data);
 
   const page = useQuery({
     queryKey: ["player", id],
@@ -52,13 +61,15 @@ export function PlayerPage() {
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
         <Stack gap="xs">
           <Title order={3}>Skills</Title>
-          <Table.ScrollContainer minWidth={260} type="native">
+          <Table.ScrollContainer minWidth={400} type="native">
             <Table striped>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Skill</Table.Th>
                   <Table.Th ta="right">Level</Table.Th>
                   <Table.Th ta="right">Experience</Table.Th>
+                  <Table.Th ta="right">Last hour</Table.Th>
+                  <Table.Th ta="right">Today</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -69,6 +80,12 @@ export function PlayerPage() {
                       <Level skill={skill} />
                     </Table.Td>
                     <Table.Td ta="right">{skill.experience.toLocaleString()}</Table.Td>
+                    <Table.Td ta="right">
+                      <Gained amount={lastHour.get(skill.skill)} />
+                    </Table.Td>
+                    <Table.Td ta="right">
+                      <Gained amount={today.get(skill.skill)} />
+                    </Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -187,6 +204,22 @@ function ItemList({ title, items, empty, markWorn = false }: { title: string; it
         </Table.ScrollContainer>
       )}
     </Stack>
+  );
+}
+
+/** Experience gained in a period, as "+1,234", or a dimmed dash when there was none. */
+function Gained({ amount }: { amount: number | undefined }) {
+  if (!amount) {
+    return (
+      <Text span c="dimmed">
+        –
+      </Text>
+    );
+  }
+  return (
+    <Text span c="green">
+      +{amount.toLocaleString()}
+    </Text>
   );
 }
 
