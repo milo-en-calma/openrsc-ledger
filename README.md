@@ -65,14 +65,17 @@ to record until the server runs again.
   for a server started by hand too, and it keeps following when the server rolls the file
   away and starts a new one. When no server is running, it shows the end of the last log.
 - **The ledger** gets a Java 25: `$LEDGER_JAVA_HOME`, else `$JAVA_HOME`, else one found on
-  the system.
+  the system, and `./ledger up` says which. A `$JAVA_HOME` older than 25 is passed over,
+  since it may be the game server's; a `$LEDGER_JAVA_HOME` that isn't Java 25 or newer is
+  refused, saying why.
 - **Ctrl-C stops the ledger and leaves the game server running,** and so does a TERM
   signal to `./ledger up`, for a launcher running in the background. The server can't be
   stopped from outside without losing what players did since its last autosave: it
   saves players only when shut down from inside the game. To stop it, log in as an admin
   and type `::shutdown`, which counts down, then saves and logs everyone out. For the same
   reason the server is started apart from the terminal's Ctrl-C, and it keeps running if
-  the terminal is closed.
+  the terminal is closed. Ctrl-C while the server is still starting leaves it starting, and
+  `./ledger up` says so.
 
 To run the ledger on its own, without the launcher:
 

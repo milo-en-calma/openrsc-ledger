@@ -40,33 +40,49 @@ or newer: $LEDGER_JAVA_HOME, else $JAVA_HOME, else one found on the system.
 EOF
 }
 
-# The major version of the Java in the folder $1, such as 25, or nothing.
+# The major version of the Java in the folder $1, such as 25, or nothing. Java 8 and older
+# call themselves "1.8" and so on, which reads as 8.
 java_major() {
-    "$1/bin/java" -version 2>&1 | sed -n 's/.* version "\([0-9][0-9]*\).*/\1/p' | head -n 1
+    "$1/bin/java" -version 2>&1 \
+        | sed -n -e 's/.* version "1\.\([0-9][0-9]*\).*/\1/p' -e 's/.* version "\([0-9][0-9]*\).*/\1/p' \
+        | head -n 1
 }
 
-is_java_25() {
+# Why the folder $1 isn't a Java 25 or newer, or nothing if it is one.
+java_problem() {
     local major
-    [ -n "$1" ] && [ -x "$1/bin/java" ] || return 1
+    if [ ! -x "$1/bin/java" ]; then echo "which has no bin/java"; return 0; fi
     major="$(java_major "$1")"
-    [ -n "$major" ] && [ "$major" -ge 25 ]
+    if [ -z "$major" ]; then echo "whose bin/java doesn't say its version"
+    elif [ "$major" -lt 25 ]; then echo "which is Java $major, not 25 or newer"
+    fi
 }
 
-# A Java 25 or newer for the ledger. Only the ledger gets it: the game server keeps
-# whichever Java ant finds, as it would without this script.
+is_java_25() { [ -n "$1" ] && [ -z "$(java_problem "$1")" ]; }
+
+# A Java 25 or newer for the ledger, or the reason there isn't one, and exit 1. Only the
+# ledger gets it: the game server keeps whichever Java ant finds, as it would without this
+# script. LEDGER_JAVA_HOME is set only to choose the ledger's Java, so a wrong one is refused
+# rather than passed over; JAVA_HOME is often the game server's older Java, so it is.
 find_java() {
-    local candidate
-    for candidate in "${LEDGER_JAVA_HOME:-}" "${JAVA_HOME:-}"; do
-        if is_java_25 "$candidate"; then echo "$candidate"; return 0; fi
-    done
-    if [ -x /usr/libexec/java_home ] && candidate="$(/usr/libexec/java_home -v 25+ 2>/dev/null)"; then
+    local candidate problem
+    if [ -n "${LEDGER_JAVA_HOME:-}" ]; then
+        problem="$(java_problem "$LEDGER_JAVA_HOME")"
+        [ -z "$problem" ] || die "LEDGER_JAVA_HOME is $LEDGER_JAVA_HOME, $problem."
+        echo "$LEDGER_JAVA_HOME"; return 0
+    fi
+    if is_java_25 "${JAVA_HOME:-}"; then echo "$JAVA_HOME"; return 0; fi
+    # Asked for a version it doesn't have, java_home answers with its default Java instead,
+    # and exit 0, so its answer is checked like any other.
+    if [ -x /usr/libexec/java_home ] && candidate="$(/usr/libexec/java_home -v 25+ 2>/dev/null)" \
+        && is_java_25 "$candidate"; then
         echo "$candidate"; return 0
     fi
     if command -v java >/dev/null 2>&1; then
         candidate="$(cd "$(dirname "$(readlink -f "$(command -v java)")")/.." && pwd)"
         if is_java_25 "$candidate"; then echo "$candidate"; return 0; fi
     fi
-    return 1
+    die "The ledger needs Java 25 or newer; set LEDGER_JAVA_HOME to one."
 }
 
 # Whether something on this machine accepts connections on port $1.
@@ -103,12 +119,17 @@ open_browser() {
     fi
 }
 
+# What happens to the game server now that the script is ending. One that up started and
+# that hasn't opened its port yet carries on starting in the background.
 server_note() {
-    if ! port_open "$game_port"; then
+    if port_open "$game_port"; then
+        say "The game server is still running on port $game_port."
+    elif [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+        say "The game server is still starting, and carries on in the background until it opens port $game_port."
+    else
         say "The game server isn't running on port $game_port."
         return 0
     fi
-    say "The game server is still running on port $game_port."
     say "To stop it with every player saved, log in as an admin and type ::shutdown (a"
     say "countdown, then everyone is saved and logged out). Stopping its process instead"
     say "loses what players did since the last autosave."
@@ -132,7 +153,7 @@ stop_ledger() {
 # built), and reads the settings this script needs into the globals below.
 load_settings() {
     [ -f "$conf" ] || die "No config at $conf. Copy ledger.conf.example to ledger.conf and set openrsc.dir."
-    java_home="$(find_java)" || die "The ledger needs Java 25 or newer; set LEDGER_JAVA_HOME to one."
+    java_home="$(find_java)" || exit 1
 
     if [ "${1:-}" = build ] || [ ! -x "$app" ]; then
         say "Building the ledger (quick when nothing has changed)..."
@@ -175,6 +196,7 @@ up() {
         esac
     done
     load_settings build
+    say "Using Java $(java_major "$java_home") from $java_home."
 
     # Otherwise the health check below would pass against the ledger already running, while
     # the new one fails to take the port and exits.
@@ -182,10 +204,12 @@ up() {
         die "Something is already listening on port $ledger_port; is a ledger running? Stop it first."
     fi
 
-    # Each process started from here gets a process group of its own, so the Ctrl-C the
+    # Each process started in the background below gets a process group of its own, by
+    # turning on job control (set -m) just for the line that starts it, so the Ctrl-C the
     # terminal sends reaches only this script, which then decides what to stop. Without
-    # this, Ctrl-C would reach the game server too and end it without saving.
-    set -m
+    # this, Ctrl-C would reach the game server too and end it without saving. Job control
+    # is off the rest of the time, and the game server's job is disowned, because bash
+    # would otherwise announce each job's end with a line of this script's code.
     trap 'stop_ledger 0' INT TERM
 
     if [ "$ledger_only" = 1 ]; then
@@ -210,16 +234,19 @@ up() {
         # start. It's disowned, so bash doesn't announce "Terminated" when it's stopped;
         # stop_ledger stops it if Ctrl-C comes first.
         : >"$server_log"
+        set -m
         tail -n 0 -F "$server_log" "$default_log" "$world_log" 2>/dev/null &
         tail_pid=$!
         disown "$tail_pid"
         # nohup, for both: they outlive the terminal window closing. If the filter died,
         # the server's console output would have nowhere to go. $! is the filter's, which
-        # ends when the server does.
+        # ends when the server does; server_note looks at it if Ctrl-C comes before the port.
         (cd "$server_dir" && exec nohup ant runserver -DconfFile="$world") 2>&1 \
             | nohup awk -v default_log="$default_log" -v world_log="$world_log" -f "$ant_filter" \
                 >>"$server_log" 2>&1 &
-        local server_pid=$!
+        server_pid=$!
+        set +m
+        disown "$server_pid"
         if ! wait_for 600 "$server_pid" port_open "$game_port"; then
             kill "$tail_pid" 2>/dev/null || true
             die "The game server didn't open port $game_port; see $server_log and $default_log"
@@ -232,9 +259,16 @@ up() {
     fi
 
     say "Starting the ledger on http://127.0.0.1:$ledger_port ..."
+    set -m
     JAVA_HOME="$java_home" "$app" "$conf" &
     ledger_pid=$!
-    wait_for 120 "$ledger_pid" ledger_health || stop_ledger 1
+    set +m
+    if ! wait_for 120 "$ledger_pid" ledger_health; then
+        if kill -0 "$ledger_pid" 2>/dev/null; then
+            say "The ledger didn't answer on http://127.0.0.1:$ledger_port/api/health within 120 seconds; stopping it."
+        fi
+        stop_ledger 1
+    fi
     if port_open "$game_port"; then
         say "The ledger is up. Ctrl-C stops it and leaves the game server running."
     else
@@ -268,7 +302,7 @@ logs() {
 }
 
 java_home="" server_dir="" world="" game_port="" ledger_port="" data_dir="" world_log="" default_log=""
-server_log="" tail_pid="" ledger_pid=""
+server_log="" tail_pid="" ledger_pid="" server_pid=""
 
 case "${1:-}" in
     up) shift; up "$@" ;;
