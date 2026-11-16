@@ -3,7 +3,8 @@
 # The format is HOCON (https://github.com/lightbend/config/blob/main/HOCON.md): `key = value`,
 # with `#` comments, `{ }` blocks, and durations such as 15s or 2m. Only openrsc.dir is
 # required; everything else shown here is the default. Relative paths are resolved
-# against the folder this file is in.
+# against the folder this file is in. These are the only settings: any other name, such as
+# a typo or a setting outside its block, stops the ledger at start, naming its line.
 
 # The port the admin console listens on. It only ever listens on 127.0.0.1.
 port = 8080

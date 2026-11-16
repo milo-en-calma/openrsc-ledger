@@ -70,14 +70,61 @@ class LedgerConfigTest {
     fun `substitutions are resolved, and an unset optional one keeps the earlier value`() {
         val config = parse(
             """
-            base = /srv
-            openrsc.dir = ${'$'}{base}/openrsc
-            data-dir = /var/ledger
+            openrsc { dir = /srv/openrsc, world = preservation }
+            data-dir = /var/ledger/${'$'}{openrsc.world}
             data-dir = ${'$'}{?LEDGER_TEST_UNSET_VARIABLE}
             """,
         )
-        assertEquals(Path.of("/srv/openrsc"), config.openRsc.dir)
-        assertEquals(Path.of("/var/ledger"), config.dataDir)
+        assertEquals(Path.of("/var/ledger/preservation"), config.dataDir)
+    }
+
+    @Test
+    fun `refuses a mistyped setting, naming its line and the setting it may have meant`() {
+        assertEquals(
+            "copy.at-most-evry isn't a ledger setting (line 2); did you mean copy.at-most-every?",
+            refusal("copy { at-most-evry = 15s }"),
+        )
+        assertEquals("prot isn't a ledger setting (line 2); did you mean port?", refusal("prot = 9000"))
+    }
+
+    @Test
+    fun `refuses a setting outside its block, naming the block it belongs in`() {
+        assertEquals("world isn't a ledger setting (line 2); did you mean openrsc.world?", refusal("world = local"))
+        assertEquals("copy.dir isn't a ledger setting (line 2); did you mean openrsc.dir?", refusal("copy.dir = /srv"))
+    }
+
+    @Test
+    fun `refuses a setting like nothing the ledger reads, with no guess`() {
+        assertEquals("colour isn't a ledger setting (line 2)", refusal("colour = blue"))
+        assertEquals("openrsc.host isn't a ledger setting (line 2)", refusal("openrsc.host = example.org"))
+    }
+
+    @Test
+    fun `refuses a value kept only for a substitution, since it can't be told from a typo`() {
+        val error = assertFailsWith<IllegalArgumentException> { parse("base = /srv\nopenrsc.dir = ${'$'}{base}/openrsc") }
+        assertEquals("base isn't a ledger setting (line 1)", error.message)
+    }
+
+    @Test
+    fun `names every unknown setting at once, in the order they're written`() {
+        assertEquals(
+            "prot isn't a ledger setting (line 2); did you mean port?; " +
+                "copy.chek-every isn't a ledger setting (line 3); did you mean copy.check-every?",
+            refusal("prot = 9000\ncopy.chek-every = 5s"),
+        )
+    }
+
+    @Test
+    fun `a block given as one value is refused by its type, not as unknown`() {
+        assertContains(refusal("copy = 15s"), "copy")
+    }
+
+    @Test
+    fun `load names the file an unknown setting is in`() {
+        val file = createTempDirectory("ledger-config").resolve("ledger.conf")
+        file.writeText("openrsc {\n  dir = /srv/openrsc\n  wrold = local\n}\n")
+        val error = assertFailsWith<IllegalArgumentException> { LedgerConfig.load(file) }
+        assertEquals("openrsc.wrold isn't a ledger setting (line 3 of $file); did you mean openrsc.world?", error.message)
     }
 
     @Test

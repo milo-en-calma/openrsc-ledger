@@ -3,6 +3,9 @@ package ledger.core.config
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigObject
+import com.typesafe.config.ConfigUtil
+import com.typesafe.config.ConfigValue
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration
@@ -37,7 +40,8 @@ data class LedgerConfig(
         fun parse(config: Config, baseDir: Path): LedgerConfig = refusingMistakes { parseChecked(config, baseDir) }
 
         private fun parseChecked(config: Config, baseDir: Path): LedgerConfig {
-            val merged = config.withFallback(ConfigFactory.parseResources("ledger-defaults.conf")).resolve()
+            refuseUnknownSettings(config)
+            val merged = config.withFallback(DEFAULTS).resolve()
             require(merged.hasPath("openrsc.dir")) {
                 "openrsc.dir is not set: it must name the OpenRSC checkout, the folder that holds server/"
             }
@@ -65,6 +69,74 @@ data class LedgerConfig(
             block()
         } catch (e: ConfigException) {
             throw IllegalArgumentException(e.message, e)
+        }
+
+        private val DEFAULTS: Config = ConfigFactory.parseResources("ledger-defaults.conf")
+
+        /** Every setting the ledger reads, as a path such as `copy.check-every`: each one with a default, and openrsc.dir. */
+        private val KNOWN_SETTINGS: Set<String> = leafPaths(DEFAULTS.root(), emptyList()) + "openrsc.dir"
+
+        /** The blocks those settings are in, such as `copy`. */
+        private val KNOWN_BLOCKS: Set<String> = KNOWN_SETTINGS.flatMap { setting ->
+            val keys = ConfigUtil.splitPath(setting)
+            (1 until keys.size).map { ConfigUtil.joinPath(keys.subList(0, it)) }
+        }.toSet()
+
+        private fun leafPaths(block: ConfigObject, prefix: List<String>): Set<String> = block.flatMap { (key, value) ->
+            if (value is ConfigObject) leafPaths(value, prefix + key) else setOf(ConfigUtil.joinPath(prefix + key))
+        }.toSet()
+
+        /**
+         * Refuses a setting the ledger doesn't read, such as a typo (`at-most-evry`) or a setting
+         * outside its block (`world` at the top level), which would otherwise be quietly ignored,
+         * naming each one with its line and a known setting it may have meant.
+         */
+        private fun refuseUnknownSettings(config: Config) {
+            val unknown = unknownSettings(config.root(), emptyList())
+                .sortedWith(compareBy({ it.second.origin().lineNumber() }, { it.first }))
+            require(unknown.isEmpty()) {
+                unknown.joinToString("; ") { (setting, value) ->
+                    val origin = value.origin()
+                    val line = origin.lineNumber().takeIf { it > 0 }?.let { "line $it" }
+                    val where = listOfNotNull(line, origin.filename()).joinToString(" of ")
+                    val refusal = "$setting isn't a ledger setting" + (if (where.isEmpty()) "" else " ($where)")
+                    suggestion(setting)?.let { "$refusal; did you mean $it?" } ?: refusal
+                }
+            }
+        }
+
+        /** The settings in [block] that the ledger doesn't know, each with its value, for where it was written. */
+        private fun unknownSettings(block: ConfigObject, prefix: List<String>): List<Pair<String, ConfigValue>> =
+            block.flatMap { (key, value) ->
+                val path = ConfigUtil.joinPath(prefix + key)
+                when {
+                    path in KNOWN_SETTINGS -> emptyList()
+                    // A known block given as one value, such as `copy = 15s`, is left to the type checks.
+                    path in KNOWN_BLOCKS -> if (value is ConfigObject) unknownSettings(value, prefix + key) else emptyList()
+                    else -> listOf(path to value)
+                }
+            }
+
+        /** A known setting [unknown] may have meant: one with the same last name in another block, or one a few letters off. */
+        private fun suggestion(unknown: String): String? {
+            val name = ConfigUtil.splitPath(unknown).last()
+            return KNOWN_SETTINGS.firstOrNull { ConfigUtil.splitPath(it).last() == name }
+                ?: KNOWN_SETTINGS.map { it to editDistance(it, unknown) }.filter { it.second <= 3 }.minByOrNull { it.second }?.first
+        }
+
+        /** How many letters must be added, removed or changed to turn [a] into [b]. */
+        private fun editDistance(a: String, b: String): Int {
+            var previous = IntArray(b.length + 1) { it }
+            for (i in 1..a.length) {
+                val current = IntArray(b.length + 1)
+                current[0] = i
+                for (j in 1..b.length) {
+                    val change = if (a[i - 1] == b[j - 1]) 0 else 1
+                    current[j] = minOf(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + change)
+                }
+                previous = current
+            }
+            return previous[b.length]
         }
 
         private val BARE_NUMBER = Regex("""\s*[+-]?[0-9.]+\s*""")
