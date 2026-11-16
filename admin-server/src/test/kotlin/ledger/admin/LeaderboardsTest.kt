@@ -64,6 +64,26 @@ class LeaderboardsTest {
     }
 
     @Test
+    fun `a skill's board leaves staff off unless asked for, as the overall board does`() {
+        change("UPDATE players SET group_id = 3 WHERE id = 3")
+        change("UPDATE experience SET woodcut = 2000 WHERE playerID = 3")
+        adminTest(game) {
+            suspend fun standings(path: String) = getJson(path)["entries"].jsonArray.map {
+                Triple(it["rank"].jsonPrimitive.int, it["name"].jsonPrimitive.content, it["staff"].jsonPrimitive.boolean)
+            }
+
+            assertEquals(
+                listOf(Triple(1, "Bramblewick", false), Triple(1, "Tansy Moss", false)),
+                standings("/api/leaderboards/woodcut"),
+            )
+            assertEquals(
+                listOf(Triple(1, "Oakhollow", true), Triple(2, "Bramblewick", false), Triple(2, "Tansy Moss", false)),
+                standings("/api/leaderboards/woodcut?staff=true"),
+            )
+        }
+    }
+
+    @Test
     fun `an unknown board is not found`() = adminTest(game) {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/leaderboards/juggling").status)
     }
