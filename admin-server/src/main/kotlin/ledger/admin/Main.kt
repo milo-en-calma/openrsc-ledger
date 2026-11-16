@@ -69,10 +69,18 @@ fun main(args: Array<String>) {
     val copier = DatabaseCopier(liveDatabase, config.dataDir.resolve("server-copy.db"))
     val gameData = SqliteGameData(copier.copy, equipmentTab = server.equipmentTab)
     val history = HistoryStore(config.dataDir.resolve("history.db"))
+    var missingStats = emptyList<Int>()
     // Each copy's changes are stamped with the server's save time, not the copy's.
     val copyLoop = DatabaseCopyLoop(liveDatabase, copier, config.copy) { copy ->
         val written = history.record(copy.liveModified, gameData.allSkills())
         if (written > 0) { log.info("Recorded {} skill changes", written) }
+
+        // Said once each time the list changes, not at every copy.
+        val missing = gameData.playersMissingStats()
+        if (missing.isNotEmpty() && missing != missingStats) {
+            log.warn("Players with ids {} have no maxstats or curstats row, so their pages say there's no such player", missing)
+        }
+        missingStats = missing
     }
     log.info("Reading the server's database {} through a copy at {}", liveDatabase, copier.copy)
     if (server.equipmentTab) { log.info("The server's equipment tab is on: reading worn items from its equipped table") }

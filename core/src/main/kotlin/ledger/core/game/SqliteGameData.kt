@@ -6,8 +6,10 @@ import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -43,14 +45,14 @@ class SqliteGameData(file: Path, private val equipmentTab: Boolean = false) : Ga
     }
 
     override fun allSkills(): List<PlayerSkills> = transaction(database) {
-        Experience.join(MaxStats, JoinType.INNER, Experience.playerId, MaxStats.playerId)
+        MaxStats.join(Experience, JoinType.LEFT, MaxStats.playerId, Experience.playerId)
             .selectAll()
-            .orderBy(Experience.playerId)
+            .orderBy(MaxStats.playerId)
             .map { row ->
                 PlayerSkills(
-                    playerId = row[Experience.playerId],
+                    playerId = row[MaxStats.playerId],
                     skills = Skill.entries.associateWith { skill ->
-                        SkillValue(experience = row[Experience.skill.getValue(skill)], level = row[MaxStats.skill.getValue(skill)])
+                        SkillValue(experience = row.experience(skill), level = row[MaxStats.skill.getValue(skill)])
                     },
                 )
             }
@@ -58,7 +60,7 @@ class SqliteGameData(file: Path, private val equipmentTab: Boolean = false) : Ga
 
     override fun player(id: Int): PlayerDetails? = transaction(database) {
         val row = Players
-            .join(Experience, JoinType.INNER, Players.id, Experience.playerId)
+            .join(Experience, JoinType.LEFT, Players.id, Experience.playerId)
             .join(MaxStats, JoinType.INNER, Players.id, MaxStats.playerId)
             .join(CurStats, JoinType.INNER, Players.id, CurStats.playerId)
             .selectAll()
@@ -83,7 +85,7 @@ class SqliteGameData(file: Path, private val equipmentTab: Boolean = false) : Ga
                 SkillStanding(
                     level = row[CurStats.skill.getValue(skill)],
                     fullLevel = row[MaxStats.skill.getValue(skill)],
-                    storedExperience = row[Experience.skill.getValue(skill)],
+                    storedExperience = row.experience(skill),
                 )
             },
             quests = quests,
@@ -106,6 +108,28 @@ class SqliteGameData(file: Path, private val equipmentTab: Boolean = false) : Ga
             .select(Equipped.playerId, ItemStatuses.catalogId, ItemStatuses.amount)
             .map { row -> HoldingRecord(row[Equipped.playerId], Place.INVENTORY, row[ItemStatuses.catalogId], row[ItemStatuses.amount]) }
     }
+
+    /**
+     * The ids of players with no `maxstats` or no `curstats` row, by id. Their pages say
+     * there's no such player, and one with no `maxstats` row is on no leaderboard. The
+     * server writes both rows when an account is made, so only old or hand-edited data
+     * lacks one.
+     */
+    fun playersMissingStats(): List<Int> = transaction(database) {
+        Players
+            .join(MaxStats, JoinType.LEFT, Players.id, MaxStats.playerId)
+            .join(CurStats, JoinType.LEFT, Players.id, CurStats.playerId)
+            .select(Players.id)
+            .where { MaxStats.playerId.isNull() or CurStats.playerId.isNull() }
+            .orderBy(Players.id)
+            .map { it[Players.id] }
+    }
+
+    /**
+     * Stored experience in [skill], or 0 when the player has no `experience` row, as the
+     * server loads such a player.
+     */
+    private fun ResultRow.experience(skill: Skill): Int = getOrNull(Experience.skill.getValue(skill)) ?: 0
 
     /**
      * What one player wears, from the `equipped` table, numbered from 0 in the order the
