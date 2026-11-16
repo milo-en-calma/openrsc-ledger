@@ -3,6 +3,7 @@ package ledger.admin
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import kotlinx.coroutines.runBlocking
+import ledger.core.config.CopyConfig
 import ledger.core.copy.DatabaseCopier
 import ledger.core.fixture.Fixtures
 import ledger.core.game.PlayerSkills
@@ -20,6 +21,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import kotlin.random.Random
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.time.measureTimedValue
 
@@ -57,8 +59,14 @@ class TimingReport {
             val file = dir.resolve("history-$rows.db")
             time("Fill history.db", runs = 1) { inventedHistory(file, rows) }
             say("  history.db: ${Files.size(file) / 1_000_000} MB, ${Files.size(file) / rows} bytes per row")
-            val history = HistoryStore(file)
-            DriverManager.getConnection("jdbc:sqlite:$file").use { connection -> HISTORY_QUERIES.forEach { plan(connection, it) } }
+            val history = time("Open history.db, reading each player's newest values as start-up does") { HistoryStore(file) }
+            timeStartUp(live, file, dir.resolve("start-$rows"))
+            DriverManager.getConnection("jdbc:sqlite:$file").use { connection ->
+                HISTORY_QUERIES.forEach { plan(connection, it) }
+                time("Read the newest recording time, as each recording does") {
+                    connection.createStatement().use { it.executeQuery(HISTORY_QUERIES.last()).use { rows -> rows.next() } }
+                }
+            }
             timeRecording(history)
             timeRoutes(game, history)
             Files.delete(file)
@@ -77,6 +85,29 @@ class TimingReport {
                 PlayerSkills(player, skills.associate { (skill, value) -> skill to if (player in risen) value.copy(experience = value.experience + gain) else value })
             })
         }
+    }
+
+    /**
+     * The ledger's start-up as `main` wires it, from building [Ledger] over a copy of
+     * [historyFile] until `/api/health` answers, which is what `./ledger up` waits up to
+     * 120 seconds for. The copy loop isn't started: the health check doesn't wait for it.
+     */
+    private fun timeStartUp(live: Path, historyFile: Path, dataDir: Path) {
+        Files.createDirectories(dataDir)
+        Files.copy(historyFile, dataDir.resolve("history.db"))
+        val client = HttpClient.newHttpClient()
+        time("Start the ledger until /api/health answers (./ledger up waits 120 s)", runs = 1) {
+            val ledger = Ledger(live, dataDir, CopyConfig(checkEvery = 1.seconds, atMostEvery = 15.seconds), equipmentTab = false)
+            val server = embeddedServer(Netty, host = HOST, port = 0) { ledger.serve(this) }.start(wait = false)
+            try {
+                val port = runBlocking { server.engine.resolvedConnectors().first().port }
+                val request = HttpRequest.newBuilder(URI("http://$HOST:$port/api/health")).build()
+                check(client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode() == 200)
+            } finally {
+                server.stop(100, 1_000)
+            }
+        }
+        dataDir.toFile().deleteRecursively()
     }
 
     /** Every API route, served by Netty on a free port as the ledger serves it. */

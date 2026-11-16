@@ -240,7 +240,8 @@ on the frontend's build.
 
 `./gradlew :admin-server:timingReport` times the ledger over a large invented world (3,000
 players with full inventories and banks, and a year of skill history) and prints each step's
-time, SQLite's plan for each query and the history file's size per row. It reports only, and
+time, SQLite's plan for each query and the history file's size per row, including start-up
+until `/api/health` answers (what `./ledger up` waits up to 120 seconds for). It reports only, and
 isn't part of `check`. It runs 100,000 and 1,000,000 rows of history, about half a minute;
 `-PtimingRows=100000,1000000,10000000` picks other sizes. Everything it writes goes in a
 temporary folder that's deleted at the end.
