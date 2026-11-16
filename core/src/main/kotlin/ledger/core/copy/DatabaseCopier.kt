@@ -5,6 +5,8 @@ import org.sqlite.SQLiteConnection
 import org.sqlite.SQLiteErrorCode
 import java.nio.file.Files
 import java.nio.file.Path
+import java.sql.Connection
+import java.sql.ResultSet
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
@@ -18,7 +20,9 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
  * up to three seconds for a lock before failing, its driver's default.
  *
  * The copy is written to a temporary file, checked, then renamed over [copy] in one step,
- * so nothing ever reads a half-written copy.
+ * so nothing ever reads a half-written copy. A copy that fails, is damaged or holds no
+ * tables at all (an empty live file reads as an empty database) is deleted, and the last
+ * good copy stays in place.
  */
 class DatabaseCopier(private val live: Path, val copy: Path) {
     fun copy() {
@@ -26,6 +30,16 @@ class DatabaseCopier(private val live: Path, val copy: Path) {
         val temp = copy.resolveSibling("${copy.fileName}.tmp")
         Files.deleteIfExists(temp)
 
+        try {
+            backUp(temp)
+            checkCopy(temp)
+            Files.move(temp, copy, ATOMIC_MOVE, REPLACE_EXISTING)
+        } finally {
+            Files.deleteIfExists(temp)
+        }
+    }
+
+    private fun backUp(temp: Path) {
         openReadOnly(live).use { connection ->
             val result = connection.unwrap(SQLiteConnection::class.java).database.backup(
                 "main",
@@ -37,21 +51,30 @@ class DatabaseCopier(private val live: Path, val copy: Path) {
             )
             check(result == SQLiteErrorCode.SQLITE_OK.code) { "Copying $live failed with SQLite result code $result" }
         }
-
-        val check = openReadOnly(temp).use { connection ->
-            connection.createStatement().use { it.executeQuery("PRAGMA quick_check").use { rows -> rows.next(); rows.getString(1) } }
-        }
-        check(check == "ok") { "The copy of $live is damaged: $check" }
-
-        Files.move(temp, copy, ATOMIC_MOVE, REPLACE_EXISTING)
     }
+
+    private fun checkCopy(temp: Path) {
+        openReadOnly(temp).use { connection ->
+            val check = connection.queryOne("PRAGMA quick_check") { it.getString(1) }
+            check(check == "ok") { "The copy of $live is damaged: $check" }
+            val tables = connection.queryOne("SELECT count(*) FROM sqlite_master WHERE type = 'table'") { it.getInt(1) }
+            check(tables > 0) { "The copy of $live has no tables; is the live file empty?" }
+        }
+    }
+
+    private fun <T> Connection.queryOne(sql: String, read: (ResultSet) -> T): T =
+        createStatement().use { it.executeQuery(sql).use { rows -> rows.next(); read(rows) } }
 
     private companion object {
         /** About 128 KB a step with the server's 4 KB pages. */
         const val PAGES_PER_STEP = 32
         /** While the server is saving, wait this long and try again... */
         const val BUSY_WAIT_MILLIS = 100
-        /** ...this many times (three seconds) before giving up until the next check. */
+        /**
+         * ...this many times before giving up until the next check. With the driver's own
+         * three-second wait on the first read before these retries start, a copy gives up
+         * after about six seconds of the server holding its lock.
+         */
         const val BUSY_RETRIES = 30
     }
 }
