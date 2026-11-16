@@ -140,9 +140,19 @@ load_settings() {
     fi
 
     # ledger.conf is HOCON, so the ledger reads it and prints what this script needs.
-    local settings key value
+    local settings
     settings="$(JAVA_HOME="$java_home" "$app" --print-launch-settings "$conf")" || exit 1
-    while IFS='=' read -r key value; do
+    read_settings <<<"$settings"
+}
+
+# Reads the key=value lines of ledger-admin --print-launch-settings into the globals below.
+# Each line is split at its first "=" here rather than by read, which would drop a value's
+# trailing "=". The ledger's tests run this function on what it prints (LaunchSettingsTest).
+read_settings() {
+    local line key value
+    while IFS= read -r line; do
+        key="${line%%=*}"
+        value="${line#*=}"
         case "$key" in
             server_dir) server_dir="$value" ;;
             world) world="$value" ;;
@@ -152,7 +162,7 @@ load_settings() {
             world_log) world_log="$value" ;;
             default_log) default_log="$value" ;;
         esac
-    done <<<"$settings"
+    done
 }
 
 up() {

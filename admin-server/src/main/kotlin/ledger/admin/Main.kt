@@ -61,7 +61,7 @@ fun main(args: Array<String>) {
 
     val (config, server) = orExit { loadSettings(configPath) }
     if (printLaunchSettings) {
-        print(launchSettings(config, server))
+        print(orExit { launchSettings(config, server) })
         return
     }
 
