@@ -16,8 +16,9 @@ function gainedBySkill(gains: SkillGain[] | undefined): Map<string, number> {
 export function PlayerPage() {
   const id = Number(useParams().id);
   // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
-  const lastHour = gainedBySkill(useGains("hour", id).data);
-  const today = gainedBySkill(useGains("today", id).data);
+  // A player's own page shows their gains whether or not they're staff.
+  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true }).data);
+  const today = gainedBySkill(useGains("today", { player: id, staff: true }).data);
 
   const page = useQuery({
     queryKey: ["player", id],

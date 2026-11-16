@@ -39,6 +39,8 @@ data class SkillGainRow(
     val experience: Int,
     /** The full level at the end of the period. */
     val level: Int,
+    /** Whether the player is staff; only ever true when the gains were asked for with `staff=true`. */
+    val staff: Boolean,
 )
 
 const val BAD_PERIOD = "Give `from` (and optionally `to`) as ISO-8601 times, such as 2026-01-01T00:00:00Z, with `from` no later than `to`."
@@ -68,6 +70,11 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
                 description = "Only gains in this skill, by key, such as `woodcut`."
                 required = false
             }
+            queryParameter<Boolean>("staff") {
+                description = "`true` to include the server's staff, as on the leaderboards. They're left out otherwise. " +
+                    "A player no longer in the server's database counts as not staff."
+                required = false
+            }
         }
         response {
             code(HttpStatusCode.OK) {
@@ -75,7 +82,7 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
                 body<GainsReport>()
             }
             code(HttpStatusCode.BadRequest) {
-                description = "The period, the player or the skill couldn't be read."
+                description = "The period, the player, the skill or `staff` couldn't be read."
                 body<NoData>()
             }
             code(HttpStatusCode.ServiceUnavailable) {
@@ -105,27 +112,38 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
             call.respond(HttpStatusCode.BadRequest, NoData(BAD_PLAYER))
             return@get
         }
+        // Read as the leaderboards read it, so a typo such as staff=1 can't pass for gains without staff.
+        val includeStaff = when (parameters["staff"]) {
+            null, "false" -> false
+            "true" -> true
+            else -> {
+                call.respond(HttpStatusCode.BadRequest, NoData(BAD_STAFF))
+                return@get
+            }
+        }
         if (lastCopy() == null) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
         }
 
-        val names = gameData.players().associate { it.id to it.name }
+        val players = gameData.players().associateBy { it.id }
         val gains = history.changes(from, to)
             .filter { (skill == null || it.skill == skill) && (playerId == null || it.playerId == playerId) }
+            .filter { includeStaff || players[it.playerId]?.staff != true }
             // A drop isn't a gain; it stays in the history, but a minus number on a board reads as a bug.
             .filter { it.end.experience >= it.start.experience }
             .sortedWith(compareByDescending<SkillChange> { it.experienceGained }.thenBy { it.playerId }.thenBy { it.skill })
             .map {
                 SkillGainRow(
                     playerId = it.playerId,
-                    name = names[it.playerId],
+                    name = players[it.playerId]?.name,
                     skill = it.skill.column,
                     skillName = it.skill.displayName,
                     experienceGained = it.experienceGained,
                     levelsGained = it.levelsGained,
                     experience = shownExperience(it.end.experience),
                     level = it.end.level,
+                    staff = players[it.playerId]?.staff == true,
                 )
             }
         call.respond(GainsReport(from = from.toString(), to = to.toString(), recordedSince = history.recordedSince()?.toString(), gains = gains))

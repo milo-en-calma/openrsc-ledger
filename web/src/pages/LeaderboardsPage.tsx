@@ -113,7 +113,14 @@ export function LeaderboardsPage() {
 }
 
 /** One player's row on the board of experience gained today. */
-type DayGains = { playerId: number; name: string; experienceGained: number; levelsGained: number; topSkill: string };
+type DayGains = {
+  playerId: number;
+  name: string;
+  staff: boolean;
+  experienceGained: number;
+  levelsGained: number;
+  topSkill: string;
+};
 
 /**
  * Adds up each player's gains across every skill, with the skill they gained most in,
@@ -128,6 +135,7 @@ function totalPerPlayer(gains: SkillGain[]): DayGains[] {
       players.set(gain.playerId, {
         playerId: gain.playerId,
         name: gain.name ?? `Player ${gain.playerId}`,
+        staff: gain.staff,
         experienceGained: gain.experienceGained,
         levelsGained: gain.levelsGained,
         topSkill: gain.skillName,
@@ -149,35 +157,20 @@ function totalPerPlayer(gains: SkillGain[]): DayGains[] {
 
 /** Players ranked by experience gained since midnight, in the viewer's time zone. Staff are left off unless [showStaff]. */
 function GainedTodayBoard({ showStaff }: { showStaff: boolean }) {
-  const gains = useGains("today");
-  // The gains don't say who is staff; the overall board, asked to include staff, does.
-  const staff = useQuery({
-    queryKey: ["leaderboard", "overall", true],
-    queryFn: async () => {
-      const { data, error } = await api.GET("/api/leaderboards/{board}", {
-        params: { path: { board: "overall" }, query: { staff: true } },
-      });
-      if (error || !data) {
-        throw new Error(error?.message ?? "The ledger didn't answer.");
-      }
-      return data;
-    },
-    select: (data) => new Set(data.entries.filter((entry) => entry.staff).map((entry) => entry.playerId)),
-    refetchInterval: 15_000,
-  });
+  const gains = useGains("today", { staff: showStaff });
 
-  if (gains.isPending || staff.isPending) {
+  if (gains.isPending) {
     return <Loader />;
   }
-  if (gains.isError || staff.isError) {
+  if (gains.isError) {
     return (
       <Alert color="red" title="Can't load today's gains">
-        {(gains.error ?? staff.error)?.message}
+        {gains.error.message}
       </Alert>
     );
   }
 
-  const rows = totalPerPlayer(gains.data).filter((row) => showStaff || !staff.data.has(row.playerId));
+  const rows = totalPerPlayer(gains.data);
   if (rows.length === 0) {
     return <Text c="dimmed">No experience gained yet today.</Text>;
   }
@@ -201,7 +194,7 @@ function GainedTodayBoard({ showStaff }: { showStaff: boolean }) {
                 <Anchor component={Link} to={`/players/${row.playerId}`}>
                   {row.name}
                 </Anchor>
-                {staff.data.has(row.playerId) && (
+                {row.staff && (
                   <Badge size="xs" variant="light" color="gray" ml="xs">
                     Staff
                   </Badge>

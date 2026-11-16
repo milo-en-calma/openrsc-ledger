@@ -1,10 +1,13 @@
 package ledger.admin
 
+import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import ledger.core.config.CopyConfig
 import ledger.core.config.LedgerConfig
+import ledger.core.copy.CopyRecord
 import ledger.core.copy.DatabaseCopier
 import ledger.core.copy.DatabaseCopyLoop
 import ledger.core.game.SqliteGameData
@@ -13,6 +16,7 @@ import ledger.core.openrsc.OpenRscServer
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.system.exitProcess
+import kotlin.time.Clock
 
 /** The admin console listens on the loopback address only: being unreachable from other machines is its security. */
 const val HOST = "127.0.0.1"
@@ -66,29 +70,46 @@ fun main(args: Array<String>) {
     }
 
     val liveDatabase = orExit { server.database() }
-    val copier = DatabaseCopier(liveDatabase, config.dataDir.resolve("server-copy.db"))
-    val gameData = SqliteGameData(copier.copy, equipmentTab = server.equipmentTab)
-    val history = orExit { HistoryStore(config.dataDir.resolve("history.db")) }
-    var missingStats = emptyList<Int>()
-    // Each copy's changes are stamped with the server's save time, not the copy's.
-    val copyLoop = DatabaseCopyLoop(liveDatabase, copier, config.copy) { copy ->
-        val written = history.record(copy.liveModified, gameData.allSkills())
+    val ledger = orExit { Ledger(liveDatabase, config.dataDir, config.copy, server.equipmentTab) }
+    log.info("Reading the server's database {} through a copy at {}", liveDatabase, ledger.copier.copy)
+    if (server.equipmentTab) { log.info("The server's equipment tab is on: reading worn items from its equipped table") }
+
+    embeddedServer(Netty, host = HOST, port = config.port) {
+        launch(Dispatchers.IO) { ledger.copyLoop.run() }
+        ledger.serve(this)
+    }.start(wait = true)
+}
+
+/**
+ * The ledger's working parts, wired as [main] runs them, so tests can run the same wiring.
+ * [copyLoop] copies the server's [liveDatabase] into [dataDir], and after each copy records
+ * its skill changes in [history], stamped with the server's save time, not the copy's;
+ * [serve] answers the API and the pages from the newest copy and that history. A history
+ * file that can't be used is an [IllegalArgumentException], as [HistoryStore] says.
+ */
+class Ledger(liveDatabase: Path, dataDir: Path, copy: CopyConfig, equipmentTab: Boolean, clock: Clock = Clock.System) {
+    val copier = DatabaseCopier(liveDatabase, dataDir.resolve("server-copy.db"))
+    val gameData = SqliteGameData(copier.copy, equipmentTab = equipmentTab)
+    val history = HistoryStore(dataDir.resolve("history.db"))
+
+    /** The players missing a stat row at the last copy, so the warning comes once each time the list changes. */
+    private var missingStats = emptyList<Int>()
+
+    val copyLoop = DatabaseCopyLoop(liveDatabase, copier, copy, clock) { record -> afterCopy(record) }
+
+    fun serve(application: Application) =
+        application.adminModule(lastCopy = { copyLoop.lastCopy }, gameData = gameData, history = history)
+
+    private fun afterCopy(record: CopyRecord) {
+        val written = history.record(record.liveModified, gameData.allSkills())
         if (written > 0) { log.info("Recorded {} skill changes", written) }
 
-        // Said once each time the list changes, not at every copy.
         val missing = gameData.playersMissingStats()
         if (missing.isNotEmpty() && missing != missingStats) {
             log.warn("Players with ids {} have no maxstats or curstats row, so their pages say there's no such player", missing)
         }
         missingStats = missing
     }
-    log.info("Reading the server's database {} through a copy at {}", liveDatabase, copier.copy)
-    if (server.equipmentTab) { log.info("The server's equipment tab is on: reading worn items from its equipped table") }
-
-    embeddedServer(Netty, host = HOST, port = config.port) {
-        launch(Dispatchers.IO) { copyLoop.run() }
-        adminModule(lastCopy = { copyLoop.lastCopy }, gameData = gameData, history = history)
-    }.start(wait = true)
 }
 
 /** Runs [block], turning a setup problem into a one-line message ([withUsage], then [USAGE]) and exit code 1. */

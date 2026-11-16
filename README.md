@@ -13,7 +13,8 @@ else; it never writes to it, and it never changes the game, the server or any pl
 
 > **Status:** early. One command starts the game server and the ledger, which keeps a
 > fresh copy of the server's database and records how every player's skills change; the
-> API gives experience gained over any period from that record (`/api/history/gains`).
+> API gives experience gained over any period from that record (`/api/history/gains`,
+> leaving the server's staff out unless asked with `staff=true`, as the leaderboards do).
 > The first screen lists every player, with their combat level, total level and last
 > login, sortable and searchable by name; each player's page shows their 20 skills, their
 > quests, and what they wear, carry and bank, all by name. Leaderboards rank everyone the

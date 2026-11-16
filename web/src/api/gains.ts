@@ -17,14 +17,17 @@ function periodStart(period: GainsPeriod): Date {
   return midnight;
 }
 
-/** Experience gained over [period], every player's or only [player]'s, refreshed like the rest of the pages. */
-export function useGains(period: GainsPeriod, player?: number) {
+/**
+ * Experience gained over [period], every player's or only [player]'s, refreshed like the rest of
+ * the pages. Staff are left out unless [staff], as on the leaderboards.
+ */
+export function useGains(period: GainsPeriod, { player, staff = false }: { player?: number; staff?: boolean } = {}) {
   return useQuery({
-    queryKey: ["gains", period, player],
+    queryKey: ["gains", period, player, staff],
     queryFn: async () => {
       const from = periodStart(period).toISOString();
       const { data, error } = await api.GET("/api/history/gains", {
-        params: { query: player === undefined ? { from } : { from, player } },
+        params: { query: player === undefined ? { from, staff } : { from, player, staff } },
       });
       if (error || !data) {
         throw new Error(error?.message ?? "The ledger didn't answer.");

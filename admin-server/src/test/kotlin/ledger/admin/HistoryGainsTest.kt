@@ -3,6 +3,8 @@ package ledger.admin
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import ledger.core.game.GameData
+import ledger.core.game.PlayerSummary
 import ledger.core.game.Skill
 import ledger.core.game.SkillValue
 import ledger.core.game.SqliteGameData
@@ -41,10 +43,10 @@ class HistoryGainsTest {
     fun `lists gains most experience first, with names, as players see experience`() = adminTest(game, history = history) {
         assertEquals(
             """{"from":"2026-01-01T09:00:00Z","to":"2026-01-01T10:00:00Z","recordedSince":"2026-01-01T08:00:00Z","gains":[""" +
-                """{"playerId":1,"name":"Bramblewick","skill":"woodcut","skillName":"Woodcutting","experienceGained":1000,"levelsGained":6,"experience":2000,"level":16},""" +
-                """{"playerId":2,"name":"Tansy Moss","skill":"woodcut","skillName":"Woodcutting","experienceGained":100,"levelsGained":1,"experience":100,"level":2},""" +
-                """{"playerId":3,"name":"Oakhollow","skill":"mining","skillName":"Mining","experienceGained":100,"levelsGained":1,"experience":100,"level":2},""" +
-                """{"playerId":9,"name":null,"skill":"fishing","skillName":"Fishing","experienceGained":10,"levelsGained":0,"experience":10,"level":1}]}""",
+                """{"playerId":1,"name":"Bramblewick","skill":"woodcut","skillName":"Woodcutting","experienceGained":1000,"levelsGained":6,"experience":2000,"level":16,"staff":false},""" +
+                """{"playerId":2,"name":"Tansy Moss","skill":"woodcut","skillName":"Woodcutting","experienceGained":100,"levelsGained":1,"experience":100,"level":2,"staff":false},""" +
+                """{"playerId":3,"name":"Oakhollow","skill":"mining","skillName":"Mining","experienceGained":100,"levelsGained":1,"experience":100,"level":2,"staff":false},""" +
+                """{"playerId":9,"name":null,"skill":"fishing","skillName":"Fishing","experienceGained":10,"levelsGained":0,"experience":10,"level":1,"staff":false}]}""",
             client.get("/api/history/gains?from=2026-01-01T09:00:00Z&to=2026-01-01T10:00:00Z").bodyAsText(),
         )
         assertEquals(Instant.parse("2026-01-01T09:00:00Z") to Instant.parse("2026-01-01T10:00:00Z"), history.askedFor)
@@ -77,10 +79,37 @@ class HistoryGainsTest {
             "from=2026-01-01T00:00:00Z&player=Bramblewick",
             "from=2026-01-01T00:00:00Z&player=",
             "from=2026-01-01T00:00:00Z&player=1.5",
+            "from=2026-01-01T00:00:00Z&staff=1",
+            "from=2026-01-01T00:00:00Z&staff=",
+            "from=2026-01-01T00:00:00Z&staff=TRUE",
         )
         for (query in unreadable) {
             assertEquals(HttpStatusCode.BadRequest, client.get("/api/history/gains?$query").status, query)
         }
+    }
+
+    /** The test game with Oakhollow (player 3) as staff. */
+    private val gameWithStaff = object : GameData by game {
+        override fun players(search: String?): List<PlayerSummary> =
+            game.players(search).map { if (it.id == 3) it.copy(staff = true) else it }
+    }
+
+    @Test
+    fun `leaves staff out unless asked, as the leaderboards do`() = adminTest(gameWithStaff, history = history) {
+        suspend fun players(query: String) = getJson("/api/history/gains?from=2026-01-01T09:00:00Z$query")["gains"].ints("playerId")
+
+        assertEquals(listOf(1, 2, 9), players(""))
+        assertEquals(listOf(1, 2, 9), players("&staff=false"))
+        assertEquals(listOf(1, 2, 3, 9), players("&staff=true"))
+        assertEquals(emptyList(), players("&player=3"), "a staff player's own gains need staff=true too")
+        assertEquals(listOf(3), players("&player=3&staff=true"))
+    }
+
+    @Test
+    fun `marks staff rows, and counts a player no longer in the game as not staff`() = adminTest(gameWithStaff, history = history) {
+        val gains = getJson("/api/history/gains?from=2026-01-01T09:00:00Z&staff=true")["gains"]
+        assertEquals(listOf(1, 2, 3, 9), gains.ints("playerId"))
+        assertEquals(listOf("false", "false", "true", "false"), gains.strings("staff"))
     }
 
     @Test

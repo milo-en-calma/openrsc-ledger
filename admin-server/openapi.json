@@ -354,6 +354,16 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "name" : "staff",
+          "in" : "query",
+          "description" : "`true` to include the server's staff, as on the leaderboards. They're left out otherwise. A player no longer in the server's database counts as not staff.",
+          "required" : false,
+          "deprecated" : false,
+          "explode" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -368,7 +378,7 @@
             }
           },
           "400" : {
-            "description" : "The period, the player or the skill couldn't be read.",
+            "description" : "The period, the player, the skill or `staff` couldn't be read.",
             "headers" : { },
             "content" : {
               "application/json" : {
@@ -762,9 +772,12 @@
           "level" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "staff" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "experience", "experienceGained", "level", "levelsGained", "playerId", "skill", "skillName" ]
+        "required" : [ "experience", "experienceGained", "level", "levelsGained", "playerId", "skill", "skillName", "staff" ]
       },
       "GainsReport" : {
         "type" : "object",
