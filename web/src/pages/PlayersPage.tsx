@@ -87,7 +87,13 @@ export function PlayersPage() {
     refetchInterval: 15_000,
   });
 
-  const table = useTable({ features, columns, data: players.data ?? [] });
+  const table = useTable({
+    features,
+    columns,
+    data: players.data ?? [],
+    // Online players first, then the most recent logins; a header click still re-sorts.
+    initialState: { sorting: [{ id: "lastSeen", desc: true }] },
+  });
 
   return (
     <Stack>
@@ -108,6 +114,8 @@ export function PlayersPage() {
         <>
           <Text c="dimmed" size="sm">
             {players.data.length === 1 ? "1 player" : `${players.data.length} players`}
+            {" · "}
+            {players.data.filter((player) => player.online).length} online now
           </Text>
           <Table.ScrollContainer minWidth={340} type="native">
             <Table striped highlightOnHover>
