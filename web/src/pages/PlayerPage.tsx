@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
 import { useGains } from "../api/gains";
+import { PageHeading, TabTitle } from "../components/PageHeading";
 import { gainedBySkill, groupItems } from "./tally";
 
 type Skill = components["schemas"]["SkillRow"];
@@ -29,7 +30,10 @@ function TodayHeading({ countedSince }: { countedSince: string | null }) {
 }
 
 export function PlayerPage() {
-  const id = Number(useParams().id);
+  const idText = useParams().id ?? "";
+  const id = Number(idText);
+  // Until the name arrives, or if it never does, the page is named from the address.
+  const placeholderName = `Player ${idText}`;
   // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
   // A player's own page shows their gains whether or not they're staff.
   const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true }).data?.gains);
@@ -49,12 +53,21 @@ export function PlayerPage() {
   });
 
   if (page.isPending) {
-    return <Loader />;
+    return (
+      <Stack>
+        <BackToPlayers />
+        <TabTitle text={placeholderName} />
+        <PageHeading>{placeholderName}</PageHeading>
+        <Loader />
+      </Stack>
+    );
   }
   if (page.isError) {
     return (
       <Stack>
         <BackToPlayers />
+        <TabTitle text={placeholderName} />
+        <PageHeading>{placeholderName}</PageHeading>
         <Alert color="red" title="Can't load this player">
           {page.error.message}
         </Alert>
@@ -66,8 +79,9 @@ export function PlayerPage() {
   return (
     <Stack>
       <BackToPlayers />
+      <TabTitle text={player.name} />
       <Group align="baseline">
-        <Title order={2}>{player.name}</Title>
+        <PageHeading>{player.name}</PageHeading>
         {player.online && <Badge color="green">Online</Badge>}
       </Group>
       <Text c="dimmed">

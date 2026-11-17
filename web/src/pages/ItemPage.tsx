@@ -2,10 +2,20 @@ import { Alert, Anchor, Badge, Loader, Paper, SimpleGrid, Stack, Table, Text, Ti
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { api } from "../api/client";
+import { PageHeading, TabTitle } from "../components/PageHeading";
 
 /** One item: how much the world holds, and everyone holding any. */
 export function ItemPage() {
-  const itemId = Number(useParams().itemId);
+  const itemIdText = useParams().itemId ?? "";
+  const itemId = Number(itemIdText);
+  // Until the name arrives, or if it never does, the page is named from the address.
+  const placeholder = (
+    <>
+      <BackToEconomy />
+      <TabTitle text={`Item ${itemIdText}`} />
+      <PageHeading>{`Item ${itemIdText}`}</PageHeading>
+    </>
+  );
 
   const item = useQuery({
     queryKey: ["item-holders", itemId],
@@ -22,29 +32,40 @@ export function ItemPage() {
 
   if (!Number.isInteger(itemId)) {
     return (
-      <Alert color="red" title="Can't load this item">
-        There's no item with that number.
-      </Alert>
+      <Stack>
+        {placeholder}
+        <Alert color="red" title="Can't load this item">
+          There's no item with that number.
+        </Alert>
+      </Stack>
     );
   }
   if (item.isPending) {
-    return <Loader />;
+    return (
+      <Stack>
+        {placeholder}
+        <Loader />
+      </Stack>
+    );
   }
   if (item.isError) {
     return (
-      <Alert color="red" title="Can't load this item">
-        {item.error.message}
-      </Alert>
+      <Stack>
+        {placeholder}
+        <Alert color="red" title="Can't load this item">
+          {item.error.message}
+        </Alert>
+      </Stack>
     );
   }
 
   const { name, held, holders } = item.data;
+  const itemName = name ?? `Item ${itemId}`;
   return (
     <Stack>
-      <Anchor component={Link} to="/economy" size="sm">
-        ← Economy
-      </Anchor>
-      <Title order={2}>{name ?? `Item ${itemId}`}</Title>
+      <BackToEconomy />
+      <TabTitle text={itemName} />
+      <PageHeading>{itemName}</PageHeading>
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
         <Amount label="Altogether" value={held.total} />
         <Amount label="In inventories" value={held.inInventories} />
@@ -91,6 +112,14 @@ export function ItemPage() {
         Noted items count as the item.
       </Text>
     </Stack>
+  );
+}
+
+function BackToEconomy() {
+  return (
+    <Anchor component={Link} to="/economy" size="sm">
+      ← Economy
+    </Anchor>
   );
 }
 

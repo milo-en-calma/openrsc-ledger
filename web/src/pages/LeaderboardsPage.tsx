@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { useGains } from "../api/gains";
+import { PageHeading, TabTitle } from "../components/PageHeading";
 import { totalPerPlayer } from "./tally";
 
 /** The board of experience gained today. It's built here from the history's gains, not served as a board by the API. */
@@ -46,6 +47,8 @@ export function LeaderboardsPage() {
 
   return (
     <Stack>
+      <TabTitle text="Leaderboards" />
+      <PageHeading>Leaderboards</PageHeading>
       <Group align="end">
         <Select
           label="Leaderboard"

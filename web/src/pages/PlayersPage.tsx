@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
+import { PageHeading, TabTitle } from "../components/PageHeading";
 import { lastSeenOrder } from "./tally";
 
 type Player = components["schemas"]["PlayerListItem"];
@@ -90,6 +91,8 @@ export function PlayersPage() {
 
   return (
     <Stack>
+      <TabTitle text="Players" />
+      <PageHeading>Players</PageHeading>
       <TextInput
         placeholder="Search by name"
         value={search}

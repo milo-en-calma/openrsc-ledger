@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
+import { PageHeading, TabTitle } from "../components/PageHeading";
 
 type ItemHoldings = components["schemas"]["ItemHoldings"];
 
@@ -90,20 +91,36 @@ export function EconomyPage() {
 
   const table = useTable({ features, columns, data: items });
 
+  // Shown while loading and on failure too, so the tab and the page always say where you are.
+  const heading = (
+    <>
+      <TabTitle text="Economy" />
+      <PageHeading>Economy</PageHeading>
+    </>
+  );
   if (economy.isPending) {
-    return <Loader />;
+    return (
+      <Stack>
+        {heading}
+        <Loader />
+      </Stack>
+    );
   }
   if (economy.isError) {
     return (
-      <Alert color="red" title="Can't load the economy">
-        {economy.error.message}
-      </Alert>
+      <Stack>
+        {heading}
+        <Alert color="red" title="Can't load the economy">
+          {economy.error.message}
+        </Alert>
+      </Stack>
     );
   }
 
   const { coins } = economy.data;
   return (
     <Stack>
+      {heading}
       <Title order={3}>Coins</Title>
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
         <CoinTotal label="Altogether" value={coins.total} />

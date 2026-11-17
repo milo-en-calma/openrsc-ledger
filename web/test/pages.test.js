@@ -1,0 +1,169 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+// Built from test/render.tsx by `npm test` just before the tests run.
+import { renderPage } from "../build/render/render.js";
+
+// Made-up answers, keyed as the pages ask for them.
+const aldren = { id: 1, name: "Aldren", combatLevel: 12, totalLevel: 40, lastLogin: null, online: true };
+const bryn = { id: 2, name: "Bryn", combatLevel: 5, totalLevel: 22, lastLogin: "2026-01-02T10:00:00Z", online: false };
+const holdings = (total) => ({ total, inInventories: total - 1, inBanks: 1 });
+const noGains = { gains: [], countedSince: null };
+
+const health = [["health"], { status: "ok", dataCopiedAt: "2026-01-02T10:00:00Z" }];
+const players = [["players", ""], [aldren, bryn]];
+const boards = [["leaderboards"], [{ key: "overall", name: "Overall" }, { key: "fishing", name: "Fishing" }]];
+const overall = [
+  ["leaderboard", "overall", false],
+  {
+    board: { key: "overall", name: "Overall" },
+    entries: [{ rank: 1, playerId: 1, name: "Aldren", level: 40, experience: 5000, staff: false }],
+  },
+];
+const gainedToday = [
+  ["gains", "today", undefined, false],
+  {
+    gains: [
+      { playerId: 2, name: "Bryn", skill: "fishing", skillName: "Fishing", experienceGained: 300, levelsGained: 1, experience: 900, level: 9, staff: false },
+    ],
+    countedSince: null,
+  },
+];
+const playerPage = [
+  ["player", 1],
+  {
+    player: aldren,
+    questPoints: 3,
+    skills: [{ skill: "fishing", name: "Fishing", level: 10, fullLevel: 10, experience: 1200 }],
+    quests: [{ id: 0, name: "Cook's Assistant", stage: 1, complete: false }],
+    equipment: [{ slot: 0, itemId: 70, name: "Bronze sword", amount: 1, noted: false, worn: true }],
+    inventory: [{ slot: 0, itemId: 10, name: "Coins", amount: 25, noted: false, worn: false }],
+    bank: [],
+  },
+];
+const playerGains = [
+  [["gains", "hour", 1, true], noGains],
+  [["gains", "today", 1, true], noGains],
+];
+const economy = [
+  ["economy"],
+  { coins: holdings(500), items: [{ itemId: 10, name: "Coins", held: holdings(500), holders: 2 }] },
+];
+const itemHolders = [
+  ["item-holders", 10],
+  { itemId: 10, name: "Coins", held: holdings(500), holders: [{ playerId: 1, name: "Aldren", staff: false, held: holdings(500) }] },
+];
+
+/** The text inside a piece of HTML, tags removed and spaces evened out. */
+function text(html) {
+  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** The value of attribute [name] in a tag, or undefined. */
+function attribute(tag, name) {
+  return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
+}
+
+/**
+ * Everything wrong with [html] for someone using a screen reader: not exactly one tab title or one
+ * main heading, a table without a header row, an input nobody labelled, or a link with no text.
+ */
+function problems(html) {
+  const found = [];
+  const titles = [...html.matchAll(/<title>([\s\S]*?)<\/title>/g)];
+  if (titles.length !== 1) {
+    found.push(`${titles.length} tab titles`);
+  }
+  const headings = [...html.matchAll(/<h1[\s>][\s\S]*?<\/h1>/g)];
+  if (headings.length !== 1) {
+    found.push(`${headings.length} main headings`);
+  }
+  for (const [table] of html.matchAll(/<table[\s>][\s\S]*?<\/table>/g)) {
+    if (!/<thead[\s>][\s\S]*?<th[\s>][\s\S]*?<\/thead>/.test(table)) {
+      found.push(`a table with no header row: ${text(table).slice(0, 60)}`);
+    }
+  }
+  for (const [input] of html.matchAll(/<input\b[^>]*>/g)) {
+    if (attribute(input, "type") === "hidden" || attribute(input, "aria-label")?.trim()) {
+      continue;
+    }
+    const id = attribute(input, "id");
+    const labels = id ? [...html.matchAll(new RegExp(`<label[^>]*\\sfor="${id}"[^>]*>([\\s\\S]*?)</label>`, "g"))] : [];
+    if (!labels.some(([, inside]) => text(inside))) {
+      found.push(`an input with no label: ${input}`);
+    }
+  }
+  for (const [link, attributes, inside] of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)) {
+    if (!text(inside) && !attribute(attributes, "aria-label")?.trim()) {
+      found.push(`a link with no text: ${link}`);
+    }
+  }
+  return found;
+}
+
+/** The page's tab title and main heading, as text. */
+function names(html) {
+  return {
+    title: text(html.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? ""),
+    heading: text(html.match(/<h1[\s>][\s\S]*?<\/h1>/)?.[0] ?? ""),
+  };
+}
+
+// Each page as it looks once loaded, and what its tab and main heading should say.
+const loaded = [
+  { path: "/", data: [health, players], name: "Players" },
+  { path: "/leaderboards", data: [health, boards, overall], name: "Leaderboards" },
+  { path: "/leaderboards/gained-today", data: [health, boards, gainedToday], name: "Leaderboards" },
+  { path: "/players/1", data: [health, playerPage, ...playerGains], name: "Aldren" },
+  { path: "/economy", data: [health, economy], name: "Economy" },
+  { path: "/items/10", data: [health, itemHolders], name: "Coins" },
+];
+
+for (const { path, data, name } of loaded) {
+  test(`${path} has one tab title and one main heading, naming the page, and nothing a screen reader would miss`, async () => {
+    const html = await renderPage(path, { data });
+    assert.deepEqual(problems(html), []);
+    assert.deepEqual(names(html), { title: `${name} · openrsc-ledger`, heading: name });
+  });
+}
+
+// Pages still loading or failed are named from the address.
+const unfinished = [
+  { path: "/players/12", seed: {}, name: "Player 12" },
+  { path: "/players/12", seed: { failed: [[["player", 12], "No player 12."]] }, name: "Player 12" },
+  { path: "/items/12", seed: {}, name: "Item 12" },
+  { path: "/items/12", seed: { failed: [[["item-holders", 12], "No item 12."]] }, name: "Item 12" },
+  { path: "/items/abc", seed: {}, name: "Item abc" },
+  { path: "/economy", seed: {}, name: "Economy" },
+  { path: "/economy", seed: { failed: [[["economy"], "No economy yet."]] }, name: "Economy" },
+];
+
+for (const { path, seed, name } of unfinished) {
+  const state = seed.failed ? "that failed to load" : "still loading";
+  test(`${path} ${state} is named "${name}" in its tab and main heading`, async () => {
+    const html = await renderPage(path, seed);
+    assert.deepEqual(problems(html), []);
+    assert.deepEqual(names(html), { title: `${name} · openrsc-ledger`, heading: name });
+    // The failure's message is shown, so the page really drew as failed and not as loading.
+    if (seed.failed) {
+      assert.ok(html.includes(seed.failed[0][1]), `"${seed.failed[0][1]}" is shown`);
+    }
+  });
+}
+
+test("the header's app name is plain text, not a heading", async () => {
+  const html = await renderPage("/", { data: [health, players] });
+  const header = html.match(/<header[\s>][\s\S]*?<\/header>/)[0];
+  assert.match(header, /openrsc-ledger/);
+  assert.doesNotMatch(header, /<h[1-6][\s>]/);
+});
+
+// The checks themselves must catch what they're for, or a passing page proves nothing.
+test("the checks catch a missing heading, a table without a header row, an unlabelled input and an empty link", () => {
+  const html =
+    "<title>T</title><table><tbody><tr><td>1</td></tr></tbody></table>" +
+    '<input id="a" value=""/><label for="b">B</label><input id="b"/><a href="/x"><svg></svg></a>';
+  assert.deepEqual(
+    problems(html).map((problem) => problem.split(":")[0]),
+    ["0 main headings", "a table with no header row", "an input with no label", "a link with no text"],
+  );
+});

@@ -17,6 +17,8 @@ val buildWeb by tasks.registering(NpmTask::class) {
     dependsOn(tasks.npmInstall)
     npmCommand = listOf("run", "build")
     inputs.dir("src")
+    // Type-checked with the app, though only the tests use it.
+    inputs.file("test/render.tsx")
     inputs.files("index.html", "package.json", "package-lock.json", "tsconfig.json", "vite.config.ts")
     inputs.file("../admin-server/openapi.json")
     outputs.dir(layout.buildDirectory.dir("dist"))
@@ -25,11 +27,12 @@ val buildWeb by tasks.registering(NpmTask::class) {
 val testWeb by tasks.registering(NpmTask::class) {
     description = "Runs the web's own tests with Node's built-in test runner."
     dependsOn(tasks.npmInstall)
-    // `npm test` also writes each result to a JUnit report beside the Kotlin tests' reports.
+    // `npm test` first builds test/render.tsx for Node, so the tests can draw each page as HTML,
+    // then writes each result to a JUnit report beside the Kotlin tests' reports.
     npmCommand = listOf("test")
     inputs.dir("src")
     inputs.dir("test")
-    inputs.file("package.json")
+    inputs.files("package.json", "package-lock.json", "vite.config.ts")
     outputs.dir(layout.buildDirectory.dir("test-results/testWeb"))
 }
 
