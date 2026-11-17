@@ -196,7 +196,8 @@ class CopyDuringSavesTest {
          * gives up after its retries, keeping the last good copy, as when a save holds its lock.
          */
         const val SAVE_GAP_MILLIS = 1L
-        const val COPYING_MILLIS = 3_000L
+        /** Long enough for about 75 copies between saves, well over the 10 the test needs (about 150 in 3 seconds). */
+        const val COPYING_MILLIS = 1_500L
         const val LOCK_HELD_AT_MOST_SECONDS = 180L
     }
 }

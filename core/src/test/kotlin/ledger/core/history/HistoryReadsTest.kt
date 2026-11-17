@@ -155,18 +155,33 @@ class HistoryReadsTest {
 
     @Test
     fun `a million rows of history stay quick to record onto and read`() {
-        val players = 3000
-        val random = Random(5)
         val file = dir.resolve("history.db")
         val year = 365L * 24 * 3600 * 1000
         val end = Instant.parse("2026-11-01T00:00:00Z").toEpochMilliseconds()
-        val experience = HashMap<Pair<Int, Skill>, Int>()
-        fill(file, (0 until 1_000_000).map { row ->
-            val key = random.nextInt(1, players + 1) to Skill.entries.random(random)
-            val value = experience.getOrDefault(key, 0) + random.nextInt(1, 400)
-            experience[key] = value
-            Row(key.first, key.second, SkillValue(value, 1), end - year + row * (year / 1_000_000))
-        })
+        HistoryStore(file)
+        // Built inside SQLite, as building the rows in Kotlin and sending each one took most of this test's time.
+        // Row n is at the nth step through the year. Its player (of 3000) and skill come from a hash of n, and its
+        // experience is n + 1, so each player's skill only rises. The rows go in in time order, as the ledger
+        // records them, so the index takes them in scattered order; a 256 MB page cache for this connection
+        // alone holds the whole index while it does, instead of rereading it from the file.
+        val skill = Skill.entries.withIndex().joinToString(" ") { (i, skill) -> "WHEN $i THEN '${skill.column}'" }
+        DriverManager.getConnection("jdbc:sqlite:$file").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute("PRAGMA cache_size = -262144")
+                statement.executeUpdate(
+                    """
+                    WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < 999999),
+                    hashed(i, h) AS (SELECT i, (i * 2654435761) % 4294967291 FROM n)
+                    INSERT INTO skill_history (player_id, skill, experience, level, recorded_at)
+                    SELECT h % 3000 + 1, CASE (h / 3000) % ${Skill.entries.size} $skill END, i + 1, 1, $end - $year + i * ${year / 1_000_000}
+                    FROM hashed
+                    """.trimIndent(),
+                )
+                statement.executeQuery("SELECT COUNT(*), COUNT(DISTINCT player_id), COUNT(DISTINCT skill) FROM skill_history").use { rows ->
+                    assertEquals(listOf(1_000_000, 3000, Skill.entries.size), listOf(rows.getInt(1), rows.getInt(2), rows.getInt(3)))
+                }
+            }
+        }
         val (history, opening) = measureTimedValue { HistoryStore(file) }
         val latest = history.latest().entries.groupBy({ it.key.first }, { it.key.second to it.value })
         val current = latest.map { (player, skills) ->

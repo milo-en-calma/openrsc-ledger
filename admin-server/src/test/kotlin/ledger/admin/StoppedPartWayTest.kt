@@ -72,12 +72,21 @@ class StoppedPartWayTest {
         Files.setLastModifiedTime(live, FileTime.fromMillis(SAVED_FROM + round * 1_000L))
     }
 
-    /** Starts the ledger's copy-and-record in its own Java process, warmed up and waiting on "go". */
-    private fun startKillable(): Process {
+    /**
+     * Starts the ledger's copy-and-record in its own Java process, which warms up and then waits
+     * on "open" before it opens the ledger's files, so it can start while the round before is
+     * still being checked.
+     */
+    private fun launchKillable(): Process {
         val java = ProcessHandle.current().info().command().orElseThrow()
-        val process = ProcessBuilder(java, "-cp", System.getProperty("java.class.path"), KillableLedger::class.java.name, live.toString(), killedData.toString(), Files.createTempDirectory(dir, "warm-up").toString())
+        return ProcessBuilder(java, "-cp", System.getProperty("java.class.path"), KillableLedger::class.java.name, live.toString(), killedData.toString(), Files.createTempDirectory(dir, "warm-up").toString())
             .redirectError(ProcessBuilder.Redirect.DISCARD)
             .start()
+    }
+
+    /** Has [process] open the ledger's files as they are now, and returns it once it's waiting on "go". */
+    private fun openFiles(process: Process): Process {
+        process.outputWriter().apply { write("open\n"); flush() }
         // Its log lines come first, on the same output.
         val output = process.inputReader()
         while (true) {
@@ -103,7 +112,7 @@ class StoppedPartWayTest {
     fun `a ledger killed at any point of a copy starts again with the same history as one never stopped`() {
         addPlayers()
         // One run left alone, to time it, then its files removed so the rounds start from nothing.
-        val timeOne = startKillable().let { process ->
+        val timeOne = openFiles(launchKillable()).let { process ->
             val started = System.nanoTime()
             process.outputWriter().apply { write("go\n"); flush() }
             check(process.waitFor(60, TimeUnit.SECONDS) && process.exitValue() == 0) { "the killable ledger failed on its own" }
@@ -113,20 +122,28 @@ class StoppedPartWayTest {
         Files.delete(killedData.resolve("server-copy.db"))
 
         val seen = mutableListOf<String>()
-        for (round in 1..ROUNDS) {
-            save(round)
-            val process = startKillable()
-            process.outputWriter().apply { write("go\n"); flush() }
-            TimeUnit.MICROSECONDS.sleep(killAfter(round, timeOne))
-            process.destroyForcibly().waitFor()
-            seen += killedDuring(round)
+        // Each round's process is launched as the round before ends, so its start-up overlaps that
+        // round's checks. Only one process is ever working, from "go" to its kill.
+        var next = launchKillable()
+        try {
+            for (round in 1..ROUNDS) {
+                save(round)
+                val process = openFiles(next)
+                process.outputWriter().apply { write("go\n"); flush() }
+                TimeUnit.MICROSECONDS.sleep(killAfter(round, timeOne))
+                process.destroyForcibly().waitFor()
+                if (round < ROUNDS) { next = launchKillable() }
+                seen += killedDuring(round)
 
-            Ledger(live, killedData, copyConfig, equipmentTab = false).copyLoop.checkOnce()
-            neverStopped.copyLoop.checkOnce()
+                Ledger(live, killedData, copyConfig, equipmentTab = false).copyLoop.checkOnce()
+                neverStopped.copyLoop.checkOnce()
 
-            assertEquals(listOf(killedData.resolve("history.db"), killedData.resolve("server-copy.db")), killedData.listDirectoryEntries().sorted(), "after round $round")
-            assertEquals(history(dir.resolve("never-stopped")), history(killedData), "after round $round")
-            assertEquals(listOf("ok"), open(killedData.resolve("history.db")).use { it.strings("PRAGMA quick_check") })
+                assertEquals(listOf(killedData.resolve("history.db"), killedData.resolve("server-copy.db")), killedData.listDirectoryEntries().sorted(), "after round $round")
+                assertEquals(history(dir.resolve("never-stopped")), history(killedData), "after round $round")
+                assertEquals(listOf("ok"), open(killedData.resolve("history.db")).use { it.strings("PRAGMA quick_check") })
+            }
+        } finally {
+            next.destroyForcibly().waitFor()
         }
         // Mostly all five of before copying, copying, copied, recording and recorded; three at the least on a busy machine.
         assertTrue(seen.distinct().size >= 3, "the kills landed in too few places to tell anything: $seen")
@@ -152,7 +169,10 @@ class StoppedPartWayTest {
     }
 }
 
-/** The ledger's copy-and-record alone, for [StoppedPartWayTest] to kill: `<live database> <data folder> <empty folder>`. */
+/**
+ * The ledger's copy-and-record alone, for [StoppedPartWayTest] to kill: `<live database> <data folder> <empty folder>`.
+ * It warms up, opens the ledger's files on "open", says "ready", and copies on "go".
+ */
 object KillableLedger {
     @JvmStatic
     fun main(args: Array<String>) {
@@ -160,6 +180,7 @@ object KillableLedger {
         // Load every class the work needs first, on a small world in the empty folder, so a kill lands in the work itself.
         val small = Fixtures.database(warmUp.resolve("small.db"))
         Ledger(small, warmUp.resolve("data"), StoppedPartWayTest.copyConfig, equipmentTab = false).copyLoop.checkOnce()
+        check(readlnOrNull() == "open")
         val ledger = Ledger(live, data, StoppedPartWayTest.copyConfig, equipmentTab = false)
         println("ready")
         System.out.flush()

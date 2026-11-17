@@ -34,13 +34,22 @@ class LedgerScriptTest {
     /** Where the fake macOS `java_home` lives; the script's `/usr/libexec/java_home` is pointed here. */
     private val javaHomeTool = dir.resolve("java_home")
 
-    /** The commands the script needs, linked one by one, so no system `java` or `ant` is found by accident. */
+    private fun system(name: String): Path = listOf("/usr/bin/$name", "/bin/$name").map { Path.of(it) }.first { it.exists() }
+
+    /** The real `sleep`, which the fakes call by its full path, as their lives are counted in real time. */
+    private val realSleep = system("sleep")
+
+    /**
+     * The commands the script needs, linked one by one, so no system `java` or `ant` is found by
+     * accident. Its `sleep` sleeps a tenth of what it's asked, so the script's once-a-second polls
+     * cost the tests a tenth of a second each.
+     */
     private val tools = dir.resolve("tools").also { tools ->
         tools.createDirectories()
-        for (name in listOf("awk", "cat", "dirname", "head", "mkdir", "nohup", "readlink", "rm", "sed", "sleep", "tail", "touch")) {
-            val found = listOf("/usr/bin/$name", "/bin/$name").map { Path.of(it) }.first { it.exists() }
-            Files.createSymbolicLink(tools.resolve(name), found)
+        for (name in listOf("awk", "cat", "dirname", "head", "mkdir", "nohup", "readlink", "rm", "sed", "tail", "touch")) {
+            Files.createSymbolicLink(tools.resolve(name), system(name))
         }
+        executable(tools.resolve("sleep"), "#!/bin/bash\nexec $realSleep \"$(${system("awk")} -v s=\"$1\" 'BEGIN { print s / 10 }')\"\n")
     }
 
     private val fakes = dir.resolve("fakes").also { it.createDirectories() }
@@ -95,10 +104,10 @@ class LedgerScriptTest {
         echo "cwd=${'$'}PWD args=${'$'}* JAVA_HOME=${'$'}{JAVA_HOME:-}" >>"$dir/ant-calls"
         echo ${'$'}${'$'} >"$pids/ant"
         echo "BUILD STARTED"
-        sleep $delaySeconds
+        $realSleep $delaySeconds
         ${if (fails) "exit 1" else ""}
         touch "$ports/$gamePort"
-        while [ ! -e "$stop" ]; do sleep 0.1; done
+        while [ ! -e "$stop" ]; do $realSleep 0.1; done
 
         """.trimIndent(),
     )
@@ -111,13 +120,13 @@ class LedgerScriptTest {
         fakes.resolve("ledger-admin"),
         """
         #!/bin/bash
+        trap 'echo stopped >>"$dir/ledger-calls"; rm -f "$ports/$ledgerPort"; exit 0' TERM
         echo "args=${'$'}* JAVA_HOME=${'$'}{JAVA_HOME:-}" >>"$dir/ledger-calls"
         echo ${'$'}${'$'} >"$pids/ledger"
-        trap 'echo stopped >>"$dir/ledger-calls"; rm -f "$ports/$ledgerPort"; exit 0' TERM
         ${if (healthy) "touch \"$ports/$ledgerPort\"" else ""}
         waited=0
         while [ ! -e "$stop" ]; do
-            sleep 0.1
+            $realSleep 0.1
             waited=${'$'}((waited + 1))
             ${if (lifeSeconds != null) "[ \"${'$'}waited\" -lt ${lifeSeconds * 10} ] || { rm -f \"$ports/$ledgerPort\"; exit 3; }" else ""}
         done
@@ -464,10 +473,11 @@ class LedgerScriptTest {
 
     @Test
     fun `when the ledger runs but never answers its health check, up says so and stops it`() {
-        // The script gives it 120 seconds; the test shortens that to 2 in the text it runs.
+        // The script gives it 120 seconds; the test shortens that to 5 in the text it runs, which
+        // the tests' sleep makes half a second.
         fakeLedger(healthy = false)
         ports.resolve("$gamePort").writeText("")
-        val ran = bash("up \"\$@\"", "--no-browser", replacing = mapOf("wait_for 120 " to "wait_for 2 "))
+        val ran = bash("up \"\$@\"", "--no-browser", replacing = mapOf("wait_for 120 " to "wait_for 5 "))
         assertEquals(1, ran.exit)
         assertTrue(
             ran.out.contains(
