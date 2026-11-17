@@ -150,6 +150,41 @@ for (const { path, seed, name } of unfinished) {
   });
 }
 
+/** Each link in [html] as its address and text, in order. */
+function links(html) {
+  return [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map(([, attributes, inside]) => [attribute(attributes, "href"), text(inside)]);
+}
+
+// The links every unknown address offers under the header, after any likely page.
+const pageLinks = [
+  ["/", "Players"],
+  ["/leaderboards", "Leaderboards"],
+  ["/economy", "Economy"],
+];
+
+// Addresses no page claims, and the page each is likely meant to be, if any.
+const unknown = [
+  { path: "/nonsense", meant: undefined },
+  { path: "/players/12/extra", meant: undefined },
+  { path: "/players", meant: ["/", "Players"] },
+  { path: "/player/12", meant: ["/players/12", "/players/12"] },
+  { path: "/leaderboard", meant: ["/leaderboards", "/leaderboards"] },
+  { path: "/leaderboard/fishing", meant: ["/leaderboards/fishing", "/leaderboards/fishing"] },
+  { path: "/item/5", meant: ["/items/5", "/items/5"] },
+];
+
+for (const { path, meant } of unknown) {
+  const offers = meant ? `offers ${meant[0]}` : "offers no likely page";
+  test(`${path} is named "Page not found", says so, and ${offers}`, async () => {
+    const html = await renderPage(path, { data: [health] });
+    assert.deepEqual(problems(html), []);
+    assert.deepEqual(names(html), { title: "Page not found · openrsc-ledger", heading: "Page not found" });
+    assert.ok(text(html).includes(`There is no page at ${path}.`), `the page names ${path}`);
+    const main = html.match(/<main[\s>][\s\S]*?<\/main>/)[0];
+    assert.deepEqual(links(main), meant ? [meant, ...pageLinks] : pageLinks);
+  });
+}
+
 test("the header's app name is plain text, not a heading", async () => {
   const html = await renderPage("/", { data: [health, players] });
   const header = html.match(/<header[\s>][\s\S]*?<\/header>/)[0];
