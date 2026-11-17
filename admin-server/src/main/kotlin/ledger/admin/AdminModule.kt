@@ -10,6 +10,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.application.install
 import io.ktor.server.http.content.staticResources
+import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.request.path
 import io.ktor.server.response.respond
@@ -49,6 +50,8 @@ fun Application.adminModule(
     history: HistoryReader = HistoryReader.NONE,
     clock: Clock = Clock.System,
 ) {
+    // Every address that answers GET answers HEAD the same way, without the body.
+    install(AutoHeadResponse)
     install(ContentNegotiation) { json() }
     install(OpenApi) {
         info {
