@@ -18,7 +18,7 @@ class SqliteGameDataTest {
     private val gameData = SqliteGameData(file)
 
     @Test
-    fun `lists every player by name, ignoring case`() {
+    fun `lists every player by name`() {
         assertEquals(listOf("Bramblewick", "Oakhollow", "Tansy Moss"), gameData.players().map { it.name })
     }
 
@@ -104,16 +104,6 @@ class SqliteGameDataTest {
     @Test
     fun `there is no player with an unknown id`() {
         assertNull(gameData.player(99))
-    }
-
-    @Test
-    fun `experience shown is a quarter of what's stored, rounded down`() {
-        // A new player's Hits: 4616 stored, 1154 in game, exactly level 10.
-        assertEquals(1154, shownExperience(4616))
-        assertEquals(83, shownExperience(335))
-        assertEquals(0, shownExperience(3))
-        // The client reads the stored number as unsigned.
-        assertEquals(0x3fffffff, shownExperience(-1))
     }
 
     @Test

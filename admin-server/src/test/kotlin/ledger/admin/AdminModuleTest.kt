@@ -33,8 +33,9 @@ class AdminModuleTest {
     }
 
     @Test
-    fun `the frontend's own addresses get its page, so a reload keeps working`() = adminTest {
-        for (path in listOf("/", "/index.html", "/players", "/players/1", "/players/1/history", "/leaderboards/woodcut?staff=1")) {
+    fun `an address no page claims still gets the frontend, which shows its not-found page`() = adminTest {
+        // The addresses pages claim are BuiltWebTest's, against the real built page.
+        for (path in listOf("/players", "/players/1/history", "/no-such-page")) {
             assertFrontend(path)
         }
     }

@@ -52,17 +52,6 @@ class WebRequestValuesTest {
     }
 
     @Test
-    fun `every board the boards list names can be asked for, with and without staff`() = adminTest(game) {
-        val keys = getJson("/api/leaderboards")["boards"].strings("key")
-        assertTrue("overall" in keys && "woodcut" in keys, "keys were $keys")
-        for (key in keys) {
-            for (address in listOf("/api/leaderboards/$key", "/api/leaderboards/$key?staff=true")) {
-                assertEquals(HttpStatusCode.OK, client.get(address).status, address)
-            }
-        }
-    }
-
-    @Test
     fun `a search with a space in it, as the players page sends it, finds the player`() = adminTest(game) {
         assertEquals(listOf("Tansy Moss"), getJson("/api/players?search=Tansy%20Moss")["players"].strings("name"))
     }

@@ -47,6 +47,8 @@ class SkillTest {
     @Test
     fun `experience shown rounds down at every remainder`() {
         assertEquals(listOf(0, 0, 0, 0, 1, 1, 1, 1, 2), (0..8).map(::shownExperience))
+        // A new player's Hits: 4616 stored, 1154 in game, exactly level 10.
+        assertEquals(1154, shownExperience(4616))
     }
 
     @Test
@@ -56,5 +58,6 @@ class SkillTest {
         // ...and the negative ones, which the client reads as unsigned, so they come out above it.
         assertEquals(0x20000000, shownExperience(Int.MIN_VALUE))
         assertEquals(0x3fffffff, shownExperience(-4))
+        assertEquals(0x3fffffff, shownExperience(-1))
     }
 }

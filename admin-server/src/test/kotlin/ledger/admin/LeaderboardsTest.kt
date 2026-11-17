@@ -3,6 +3,7 @@ package ledger.admin
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -103,13 +104,18 @@ class LeaderboardsTest {
     }
 
     @Test
-    fun `every board on the list answers with every player`() = adminTest(game) {
+    fun `every board on the list answers with every player, with and without staff`() = adminTest(game) {
         val keys = getJson("/api/leaderboards")["boards"].strings("key")
         assertEquals(listOf("overall") + Skill.entries.map { it.column }, keys)
         for (key in keys) {
-            val board = getJson("/api/leaderboards/$key")
-            assertEquals(key, board["board"]["key"].jsonPrimitive.content)
-            assertEquals(3, board["entries"].jsonArray.size, key)
+            // The test database has no staff, so both answers list all three players.
+            for (address in listOf("/api/leaderboards/$key", "/api/leaderboards/$key?staff=true")) {
+                val response = client.get(address)
+                assertEquals(HttpStatusCode.OK, response.status, address)
+                val board = Json.parseToJsonElement(response.bodyAsText())
+                assertEquals(key, board["board"]["key"].jsonPrimitive.content, address)
+                assertEquals(3, board["entries"].jsonArray.size, address)
+            }
         }
     }
 
