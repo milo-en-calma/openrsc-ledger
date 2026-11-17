@@ -134,7 +134,7 @@ const unfinished = [
   { path: "/players/abc", seed: {}, name: "Player abc", refused: "no player with that number." },
   { path: "/items/12", seed: {}, name: "Item 12" },
   { path: "/items/12", seed: { failed: [[["item-holders", 12], "No item 12."]] }, name: "Item 12" },
-  { path: "/items/abc", seed: {}, name: "Item abc" },
+  { path: "/items/abc", seed: {}, name: "Item abc", refused: "no item with that number." },
   { path: "/economy", seed: {}, name: "Economy" },
   { path: "/economy", seed: { failed: [[["economy"], "No economy yet."]] }, name: "Economy" },
 ];
