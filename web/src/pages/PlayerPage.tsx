@@ -34,10 +34,12 @@ export function PlayerPage() {
   const id = Number(idText);
   // Until the name arrives, or if it never does, the page is named from the address.
   const placeholderName = `Player ${idText}`;
+  // An address that isn't a player number is refused at once, without asking the server.
+  const isPlayerNumber = Number.isInteger(id);
   // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
   // A player's own page shows their gains whether or not they're staff.
-  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true }).data?.gains);
-  const todayGains = useGains("today", { player: id, staff: true }).data;
+  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true, enabled: isPlayerNumber }).data?.gains);
+  const todayGains = useGains("today", { player: id, staff: true, enabled: isPlayerNumber }).data;
   const today = gainedBySkill(todayGains?.gains);
 
   const page = useQuery({
@@ -49,9 +51,22 @@ export function PlayerPage() {
       }
       return data;
     },
+    enabled: isPlayerNumber,
     refetchInterval: 15_000,
   });
 
+  if (!isPlayerNumber) {
+    return (
+      <Stack>
+        <BackToPlayers />
+        <TabTitle text={placeholderName} />
+        <PageHeading>{placeholderName}</PageHeading>
+        <Alert color="red" title="Can't load this player">
+          There's no player with that number.
+        </Alert>
+      </Stack>
+    );
+  }
   if (page.isPending) {
     return (
       <Stack>

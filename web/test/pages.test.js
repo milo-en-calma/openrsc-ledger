@@ -126,10 +126,12 @@ for (const { path, data, name } of loaded) {
   });
 }
 
-// Pages still loading or failed are named from the address.
+// Pages still loading, failed or refused are named from the address.
 const unfinished = [
   { path: "/players/12", seed: {}, name: "Player 12" },
   { path: "/players/12", seed: { failed: [[["player", 12], "No player 12."]] }, name: "Player 12" },
+  // Refused at once: nothing is seeded, so a page that asked the server would still be loading.
+  { path: "/players/abc", seed: {}, name: "Player abc", refused: "no player with that number." },
   { path: "/items/12", seed: {}, name: "Item 12" },
   { path: "/items/12", seed: { failed: [[["item-holders", 12], "No item 12."]] }, name: "Item 12" },
   { path: "/items/abc", seed: {}, name: "Item abc" },
@@ -137,8 +139,8 @@ const unfinished = [
   { path: "/economy", seed: { failed: [[["economy"], "No economy yet."]] }, name: "Economy" },
 ];
 
-for (const { path, seed, name } of unfinished) {
-  const state = seed.failed ? "that failed to load" : "still loading";
+for (const { path, seed, name, refused } of unfinished) {
+  const state = refused ? "refused at once" : seed.failed ? "that failed to load" : "still loading";
   test(`${path} ${state} is named "${name}" in its tab and main heading`, async () => {
     const html = await renderPage(path, seed);
     assert.deepEqual(problems(html), []);
@@ -146,6 +148,10 @@ for (const { path, seed, name } of unfinished) {
     // The failure's message is shown, so the page really drew as failed and not as loading.
     if (seed.failed) {
       assert.ok(html.includes(seed.failed[0][1]), `"${seed.failed[0][1]}" is shown`);
+    }
+    // The refusal is shown in place of a loader. (Drawn HTML escapes the apostrophe in "There's".)
+    if (refused) {
+      assert.ok(html.includes(refused), `"${refused}" is shown`);
     }
   });
 }

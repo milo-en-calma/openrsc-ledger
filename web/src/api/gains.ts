@@ -9,9 +9,12 @@ export type SkillGain = components["schemas"]["SkillGainRow"];
 /**
  * Experience gained over [period], every player's or only [player]'s, refreshed like the rest of
  * the pages, with [countedSinceNote]'s note when history began after the period's start. Staff
- * are left out unless [staff], as on the leaderboards.
+ * are left out unless [staff], as on the leaderboards. Nothing is fetched while [enabled] is false.
  */
-export function useGains(period: GainsPeriod, { player, staff = false }: { player?: number; staff?: boolean } = {}) {
+export function useGains(
+  period: GainsPeriod,
+  { player, staff = false, enabled = true }: { player?: number; staff?: boolean; enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: ["gains", period, player, staff],
     queryFn: async () => {
@@ -26,6 +29,7 @@ export function useGains(period: GainsPeriod, { player, staff = false }: { playe
       }
       return { gains: data.gains, countedSince: countedSinceNote(data.recordedSince, start) };
     },
+    enabled,
     refetchInterval: 15_000,
   });
 }
