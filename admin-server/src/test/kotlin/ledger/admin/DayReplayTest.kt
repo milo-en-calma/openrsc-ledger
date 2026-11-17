@@ -3,12 +3,20 @@ package ledger.admin
 import io.ktor.client.request.get
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import ledger.core.config.CopyConfig
 import ledger.core.fixture.Fixtures
 import java.nio.file.Files
@@ -16,7 +24,11 @@ import java.nio.file.Path
 import java.sql.DriverManager
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import kotlin.io.path.createTempDirectory
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.writeText
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,6 +38,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 import kotlin.time.toKotlinInstant
 
 /**
@@ -42,8 +55,13 @@ import kotlin.time.toKotlinInstant
  * ([checkDay]). The server knows no time zones: a page asks for "today" from the viewer's
  * own midnight, as these do.
  *
+ * At a few set moments ([drawnAfterMidnight]) it also saves what the "Experience gained today"
+ * board would be drawn from, the server's real answers fetched as the page fetches them, with the
+ * board the pages imply ([todaysBoard]). Once the day has passed every check, they're written to
+ * the folder in the `ledger.dayReplayPages` property, for the web's `dayReplay.test.js` to draw.
+ *
  * Each day takes several seconds, so it runs in its own task, `:admin-server:dayReplay`, not
- * in `test` or `check`.
+ * in `test` or `check`. `:web:dayReplayPages` runs it, then draws the boards.
  */
 class DayReplayTest {
     private val zone = ZoneId.of("America/New_York")
@@ -193,7 +211,70 @@ class DayReplayTest {
         connection.createStatement().use { it.executeQuery("SELECT COUNT(*) FROM skill_history").apply { next() }.getInt(1) }
     }
 
+    // What the "Experience gained today" board is drawn from, at set moments.
+
+    /**
+     * When, after each midnight, the board's answers are saved; and a minute before the next
+     * midnight. On the day the clocks go back, 1:30 and 2:30 after midnight are both 01:30 on the
+     * clock, once each time round, so the repeated hour is drawn in both.
+     */
+    private val drawnAfterMidnight = listOf(5.minutes, 1.hours + 30.minutes, 2.hours + 30.minutes, 9.hours + 30.minutes, 11.hours + 59.minutes, 18.hours + 45.minutes)
+
+    /** A time as a browser's `Date.toISOString()` writes it, milliseconds included. */
+    private val browserTime = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+
+    private fun Instant.asBrowserWrites(): String = browserTime.format(toJavaInstant())
+
+    /**
+     * The answers the board is drawn from now, fetched as the page fetches them (gains since
+     * [date]'s midnight on a New York clock, staff left out, until the server's own now), and the
+     * board the pages imply: each player's experience now less that at midnight, or when they
+     * joined, ranked as the board ranks, with every skill tied for the most gained. A player no
+     * longer on the server is named by number.
+     */
+    private suspend fun ApplicationTestBuilder.todaysBoard(date: LocalDate): JsonObject {
+        val from = midnight(date)
+        val names = getJson("/api/players")["players"].jsonArray.associate { it["id"].jsonPrimitive.int to it["name"].jsonPrimitive.content }
+        val skillNames = getJson("/api/players/1")["skills"].jsonArray.associate { it["skill"].jsonPrimitive.content to it["name"].jsonPrimitive.content }
+        val rows = (1..7).mapNotNull { player ->
+            val end = pageAt(player, now) ?: return@mapNotNull null
+            val start = pageAt(player, from) ?: snapshots.first { player in it.pages }.pages.getValue(player)
+            val gained = end.mapValues { (skill, value) -> value.first - start.getValue(skill).first to value.second - start.getValue(skill).second }
+            val experience = gained.values.sumOf { it.first }
+            if (experience <= 0) { return@mapNotNull null }
+            val most = gained.values.maxOf { it.first }
+            val board = buildJsonObject {
+                put("name", names[player] ?: "Player $player")
+                put("experienceGained", experience)
+                put("levelsGained", gained.values.sumOf { it.second })
+                putJsonArray("mostIn") { gained.filterValues { it.first == most }.keys.forEach { add(skillNames.getValue(it)) } }
+            }
+            Triple(experience, (names[player] ?: "Player $player").lowercase(), board)
+        }.sortedWith(compareByDescending<Triple<Int, String, JsonObject>> { it.first }.thenBy { it.second }).map { it.third }
+
+        val health = getJson("/api/health")
+        val boards = getJson("/api/leaderboards")
+        val gains = getJson("/api/history/gains?from=${from.asBrowserWrites()}&staff=false")
+        return buildJsonObject {
+            put("now", now.asBrowserWrites())
+            put("from", from.asBrowserWrites())
+            putJsonObject("answers") {
+                put("health", health)
+                put("leaderboards", boards)
+                put("gains", gains)
+            }
+            put("board", JsonArray(rows))
+        }
+    }
+
     private fun replay(date: LocalDate, hours: Int) {
+        // A day that fails leaves no answers behind to be drawn as if it had passed.
+        val pagesDir = System.getProperty("ledger.dayReplayPages")?.let { Path.of(it) }
+        val pagesFile = pagesDir?.resolve("$date.json")
+        pagesFile?.deleteIfExists()
+        val drawAt = ArrayDeque(drawnAfterMidnight.map { midnight(date) + it } + (midnight(date.plusDays(1)) - 1.minutes))
+        val drawn = mutableListOf<JsonObject>()
+
         schedule(date)
         val pending = ArrayDeque(events.sortedBy { it.at })
         val start = at(date.minusDays(1), 22)
@@ -212,6 +293,10 @@ class DayReplayTest {
                     saves.save(event.at, *event.happen())
                 }
                 if (ledger.copyLoop.checkOnce()) { checkCopy(ledger) }
+                if (drawAt.isNotEmpty() && drawAt.first() <= now) {
+                    drawAt.removeFirst()
+                    drawn += todaysBoard(date)
+                }
             }
             atEnd()
         }
@@ -220,6 +305,17 @@ class DayReplayTest {
         // Restarted: it reads its history back and carries on.
         run(ledger(), at(date.plusDays(1), 2)) { checkDay(date, hours) }
         assertTrue(pending.isEmpty())
+        assertTrue(drawAt.isEmpty())
+
+        if (pagesFile != null) {
+            Files.createDirectories(pagesDir)
+            val pages = buildJsonObject {
+                put("date", date.toString())
+                put("zone", zone.id)
+                put("moments", JsonArray(drawn))
+            }
+            pagesFile.writeText(Json { prettyPrint = true }.encodeToString(JsonObject.serializer(), pages))
+        }
     }
 
     private suspend fun ApplicationTestBuilder.checkCopy(ledger: Ledger) {

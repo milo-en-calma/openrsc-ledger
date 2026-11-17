@@ -7,7 +7,8 @@
     "gen:api": "openapi-typescript ../admin-server/openapi.json -o generated/openapi.d.ts",
     "dev": "npm run gen:api && vite",
     "build": "npm run gen:api && tsc --noEmit && vite build",
-    "test": "vite build --ssr test/render.tsx --outDir build/render --emptyOutDir --logLevel warn && LANG=en_US.UTF-8 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=build/test-results/testWeb/node.xml \"test/*.test.js\""
+    "test": "vite build --ssr test/render.tsx --outDir build/render --emptyOutDir --logLevel warn && LANG=en_US.UTF-8 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=build/test-results/testWeb/node.xml \"test/*.test.js\"",
+    "test:dayReplay": "vite build --ssr test/render.tsx --outDir build/render --emptyOutDir --logLevel warn && LANG=en_US.UTF-8 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=build/test-results/dayReplayPages/node.xml \"test/replay/*.test.js\""
   },
   "dependencies": {
     "@mantine/core": "9.8.0",

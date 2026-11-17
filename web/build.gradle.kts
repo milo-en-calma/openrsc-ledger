@@ -38,6 +38,19 @@ val testWeb by tasks.registering(NpmTask::class) {
 
 tasks.check { dependsOn(testWeb) }
 
+// The day replay's real answers drawn as the "Experience gained today" board, at set moments of
+// each replayed day. It runs the replay first, so like the replay it stays out of `check`.
+val dayReplayPages by tasks.registering(NpmTask::class) {
+    description = "Replays two invented days through the ledger, then draws the board of experience gained today from the server's real answers."
+    group = "verification"
+    dependsOn(tasks.npmInstall, ":admin-server:dayReplay")
+    npmCommand = listOf("run", "test:dayReplay")
+    environment.put("DAY_REPLAY_PAGES", rootProject.layout.projectDirectory.dir("admin-server/build/day-replay").asFile.absolutePath)
+    outputs.dir(layout.buildDirectory.dir("test-results/dayReplayPages"))
+    // A drawing of this run's replay: never taken from an earlier run.
+    outputs.upToDateWhen { false }
+}
+
 // The built frontend, which the admin server bundles into its jar.
 val webDist by configurations.creating {
     isCanBeConsumed = true

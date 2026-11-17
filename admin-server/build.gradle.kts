@@ -97,6 +97,8 @@ tasks.test {
 
 // Two invented days, each about 1,200 copies with every page checked after each, replayed
 // through the ledger. It takes about 15 seconds, too long for `check`, so it runs on its own.
+// It leaves the answers the "Experience gained today" board is drawn from in build/day-replay,
+// which :web:dayReplayPages draws after running this.
 tasks.register<Test>("dayReplay") {
     description = "Replays two invented days of game saves through the ledger, checking the pages after every copy and the day's gains at the end."
     group = "verification"
@@ -106,6 +108,9 @@ tasks.register<Test>("dayReplay") {
     classpath = sourceSets.test.get().runtimeClasspath
     filter { includeTestsMatching(dayReplay) }
     testLogging { showStandardStreams = true }
+    val pages = layout.buildDirectory.dir("day-replay")
+    outputs.dir(pages)
+    systemProperty("ledger.dayReplayPages", pages.get().asFile.absolutePath)
 }
 
 // How long the ledger's work takes over a large invented world, printed. Reports only, and not
