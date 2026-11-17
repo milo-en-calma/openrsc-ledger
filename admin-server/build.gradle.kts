@@ -80,6 +80,9 @@ val builtWebTests = "ledger.admin.BuiltWebTest"
 // The timing report over a large invented world; it runs only in timingReport, below.
 val timingReport = "ledger.admin.TimingReport"
 
+// A whole invented day replayed through the ledger; it runs only in dayReplay, below.
+val dayReplay = "ledger.admin.DayReplayTest"
+
 tasks.test {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -88,7 +91,21 @@ tasks.test {
     filter {
         excludeTestsMatching(builtWebTests)
         excludeTestsMatching(timingReport)
+        excludeTestsMatching(dayReplay)
     }
+}
+
+// Two invented days, each about 1,200 copies with every page checked after each, replayed
+// through the ledger. It takes about 15 seconds, too long for `check`, so it runs on its own.
+tasks.register<Test>("dayReplay") {
+    description = "Replays two invented days of game saves through the ledger, checking the pages after every copy and the day's gains at the end."
+    group = "verification"
+    useJUnitPlatform()
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter { includeTestsMatching(dayReplay) }
+    testLogging { showStandardStreams = true }
 }
 
 // How long the ledger's work takes over a large invented world, printed. Reports only, and not
