@@ -132,9 +132,15 @@ const unfinished = [
   { path: "/players/12", seed: { failed: [[["player", 12], "No player 12."]] }, name: "Player 12" },
   // Refused at once: nothing is seeded, so a page that asked the server would still be loading.
   { path: "/players/abc", seed: {}, name: "Player abc", refused: "no player with that number." },
+  // Numbers written other than as plain digits are refused too, never read as another player.
+  { path: "/players/0x10", seed: {}, name: "Player 0x10", refused: "no player with that number." },
+  { path: "/players/1e3", seed: {}, name: "Player 1e3", refused: "no player with that number." },
+  { path: "/players/2147483648", seed: {}, name: "Player 2147483648", refused: "no player with that number." },
   { path: "/items/12", seed: {}, name: "Item 12" },
   { path: "/items/12", seed: { failed: [[["item-holders", 12], "No item 12."]] }, name: "Item 12" },
   { path: "/items/abc", seed: {}, name: "Item abc", refused: "no item with that number." },
+  { path: "/items/%20", seed: {}, name: "Item", refused: "no item with that number." },
+  { path: "/items/012", seed: {}, name: "Item 012", refused: "no item with that number." },
   { path: "/economy", seed: {}, name: "Economy" },
   { path: "/economy", seed: { failed: [[["economy"], "No economy yet."]] }, name: "Economy" },
 ];

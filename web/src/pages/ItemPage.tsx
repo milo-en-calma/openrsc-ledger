@@ -1,13 +1,15 @@
 import { Alert, Anchor, Badge, Loader, Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../api/client";
 import { PageHeading, TabTitle } from "../components/PageHeading";
+import { addressId } from "./addressId";
 
 /** One item: how much the world holds, and everyone holding any. */
 export function ItemPage() {
   const itemIdText = useParams().itemId ?? "";
-  const itemId = Number(itemIdText);
+  const itemId = addressId(itemIdText);
   // Until the name arrives, or if it never does, the page is named from the address.
   const placeholder = (
     <>
@@ -17,20 +19,8 @@ export function ItemPage() {
     </>
   );
 
-  const item = useQuery({
-    queryKey: ["item-holders", itemId],
-    queryFn: async () => {
-      const { data, error } = await api.GET("/api/items/{itemId}/holders", { params: { path: { itemId } } });
-      if (error || !data) {
-        throw new Error(error?.message ?? "The ledger didn't answer.");
-      }
-      return data;
-    },
-    enabled: Number.isInteger(itemId),
-    refetchInterval: 15_000,
-  });
-
-  if (!Number.isInteger(itemId)) {
+  // An address that isn't an item number is refused at once, without asking the server.
+  if (itemId === undefined) {
     return (
       <Stack>
         {placeholder}
@@ -40,6 +30,23 @@ export function ItemPage() {
       </Stack>
     );
   }
+  return <ItemSheet itemId={itemId} placeholder={placeholder} />;
+}
+
+/** Item [itemId]'s page, showing [placeholder] in place of its name until the name arrives. */
+function ItemSheet({ itemId, placeholder }: { itemId: number; placeholder: ReactNode }) {
+  const item = useQuery({
+    queryKey: ["item-holders", itemId],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/items/{itemId}/holders", { params: { path: { itemId } } });
+      if (error || !data) {
+        throw new Error(error?.message ?? "The ledger didn't answer.");
+      }
+      return data;
+    },
+    refetchInterval: 15_000,
+  });
+
   if (item.isPending) {
     return (
       <Stack>

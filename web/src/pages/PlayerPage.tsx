@@ -5,6 +5,7 @@ import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
 import { useGains } from "../api/gains";
 import { PageHeading, TabTitle } from "../components/PageHeading";
+import { addressId } from "./addressId";
 import { gainedBySkill, groupItems } from "./tally";
 
 type Skill = components["schemas"]["SkillRow"];
@@ -31,31 +32,12 @@ function TodayHeading({ countedSince }: { countedSince: string | null }) {
 
 export function PlayerPage() {
   const idText = useParams().id ?? "";
-  const id = Number(idText);
+  const id = addressId(idText);
   // Until the name arrives, or if it never does, the page is named from the address.
   const placeholderName = `Player ${idText}`;
+
   // An address that isn't a player number is refused at once, without asking the server.
-  const isPlayerNumber = Number.isInteger(id);
-  // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
-  // A player's own page shows their gains whether or not they're staff.
-  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true, enabled: isPlayerNumber }).data?.gains);
-  const todayGains = useGains("today", { player: id, staff: true, enabled: isPlayerNumber }).data;
-  const today = gainedBySkill(todayGains?.gains);
-
-  const page = useQuery({
-    queryKey: ["player", id],
-    queryFn: async () => {
-      const { data, error } = await api.GET("/api/players/{id}", { params: { path: { id } } });
-      if (error || !data) {
-        throw new Error(error?.message ?? "The ledger didn't answer.");
-      }
-      return data;
-    },
-    enabled: isPlayerNumber,
-    refetchInterval: 15_000,
-  });
-
-  if (!isPlayerNumber) {
+  if (id === undefined) {
     return (
       <Stack>
         <BackToPlayers />
@@ -67,6 +49,29 @@ export function PlayerPage() {
       </Stack>
     );
   }
+  return <PlayerSheet id={id} placeholderName={placeholderName} />;
+}
+
+/** Player [id]'s page, named [placeholderName] until the name arrives. */
+function PlayerSheet({ id, placeholderName }: { id: number; placeholderName: string }) {
+  // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
+  // A player's own page shows their gains whether or not they're staff.
+  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true }).data?.gains);
+  const todayGains = useGains("today", { player: id, staff: true }).data;
+  const today = gainedBySkill(todayGains?.gains);
+
+  const page = useQuery({
+    queryKey: ["player", id],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/players/{id}", { params: { path: { id } } });
+      if (error || !data) {
+        throw new Error(error?.message ?? "The ledger didn't answer.");
+      }
+      return data;
+    },
+    refetchInterval: 15_000,
+  });
+
   if (page.isPending) {
     return (
       <Stack>
