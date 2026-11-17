@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
+import { lastSeenOrder } from "./tally";
 
 type Player = components["schemas"]["PlayerListItem"];
 
@@ -24,14 +25,6 @@ const features = tableFeatures({
 });
 
 const column = createColumnHelper<typeof features, Player>();
-
-/** Sorts players online now above everyone, then by when they last logged in. */
-function lastSeenOrder(player: Player): number {
-  if (player.online) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-  return player.lastLogin ? Date.parse(player.lastLogin) : 0;
-}
 
 const columns = column.columns([
   column.accessor("name", {

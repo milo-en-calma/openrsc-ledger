@@ -2,7 +2,8 @@ import { Alert, Anchor, Badge, Group, Loader, Select, Stack, Switch, Table, Text
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
-import { type SkillGain, useGains } from "../api/gains";
+import { useGains } from "../api/gains";
+import { totalPerPlayer } from "./tally";
 
 /** The board of experience gained today. It's built here from the history's gains, not served as a board by the API. */
 const GAINED_TODAY = "gained-today";
@@ -109,49 +110,6 @@ export function LeaderboardsPage() {
         </Table.ScrollContainer>
       )}
     </Stack>
-  );
-}
-
-/** One player's row on the board of experience gained today. */
-type DayGains = {
-  playerId: number;
-  name: string;
-  staff: boolean;
-  experienceGained: number;
-  levelsGained: number;
-  topSkill: string;
-};
-
-/**
- * Adds up each player's gains across every skill, with the skill they gained most in,
- * ranked by experience gained, ties by name. Players who gained no experience are left
- * off: a level can change with none gained only when the database is edited by hand.
- */
-function totalPerPlayer(gains: SkillGain[]): DayGains[] {
-  const players = new Map<number, DayGains & { topGain: number }>();
-  for (const gain of gains) {
-    const player = players.get(gain.playerId);
-    if (!player) {
-      players.set(gain.playerId, {
-        playerId: gain.playerId,
-        name: gain.name ?? `Player ${gain.playerId}`,
-        staff: gain.staff,
-        experienceGained: gain.experienceGained,
-        levelsGained: gain.levelsGained,
-        topSkill: gain.skillName,
-        topGain: gain.experienceGained,
-      });
-      continue;
-    }
-    player.experienceGained += gain.experienceGained;
-    player.levelsGained += gain.levelsGained;
-    if (gain.experienceGained > player.topGain) {
-      player.topSkill = gain.skillName;
-      player.topGain = gain.experienceGained;
-    }
-  }
-  return [...players.values()].filter((player) => player.experienceGained > 0).sort(
-    (a, b) => b.experienceGained - a.experienceGained || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
 }
 

@@ -22,6 +22,19 @@ val buildWeb by tasks.registering(NpmTask::class) {
     outputs.dir(layout.buildDirectory.dir("dist"))
 }
 
+val testWeb by tasks.registering(NpmTask::class) {
+    description = "Runs the web's own tests with Node's built-in test runner."
+    dependsOn(tasks.npmInstall)
+    // `npm test` also writes each result to a JUnit report beside the Kotlin tests' reports.
+    npmCommand = listOf("test")
+    inputs.dir("src")
+    inputs.dir("test")
+    inputs.file("package.json")
+    outputs.dir(layout.buildDirectory.dir("test-results/testWeb"))
+}
+
+tasks.check { dependsOn(testWeb) }
+
 // The built frontend, which the admin server bundles into its jar.
 val webDist by configurations.creating {
     isCanBeConsumed = true

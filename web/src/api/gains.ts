@@ -2,21 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import type { components } from "../../generated/openapi";
 import { api } from "./client";
 import { countedSinceNote } from "./countedSince";
+import { type GainsPeriod, periodStart } from "./period";
 
 export type SkillGain = components["schemas"]["SkillGainRow"];
-
-/** How far back a gain is counted from: the last hour, or since midnight in the viewer's time zone. */
-export type GainsPeriod = "hour" | "today";
-
-/** The start of [period], worked out afresh on each fetch so "today" rolls over at midnight. */
-function periodStart(period: GainsPeriod): Date {
-  if (period === "hour") {
-    return new Date(Date.now() - 60 * 60 * 1000);
-  }
-  const midnight = new Date();
-  midnight.setHours(0, 0, 0, 0);
-  return midnight;
-}
 
 /**
  * Experience gained over [period], every player's or only [player]'s, refreshed like the rest of
@@ -27,6 +15,7 @@ export function useGains(period: GainsPeriod, { player, staff = false }: { playe
   return useQuery({
     queryKey: ["gains", period, player, staff],
     queryFn: async () => {
+      // Worked out afresh on each fetch, so "today" rolls over at midnight.
       const start = periodStart(period);
       const from = start.toISOString();
       const { data, error } = await api.GET("/api/history/gains", {

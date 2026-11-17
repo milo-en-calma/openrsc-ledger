@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import type { components } from "../../generated/openapi";
 import { api } from "../api/client";
-import { type SkillGain, useGains } from "../api/gains";
+import { useGains } from "../api/gains";
+import { gainedBySkill, groupItems } from "./tally";
 
 type Skill = components["schemas"]["SkillRow"];
 type Item = components["schemas"]["ItemRow"];
@@ -25,11 +26,6 @@ function TodayHeading({ countedSince }: { countedSince: string | null }) {
       </Text>
     </Tooltip>
   );
-}
-
-/** Experience gained per skill key, from one period's gains. */
-function gainedBySkill(gains: SkillGain[] | undefined): Map<string, number> {
-  return new Map((gains ?? []).map((gain) => [gain.skill, gain.experienceGained]));
 }
 
 export function PlayerPage() {
@@ -152,29 +148,6 @@ export function PlayerPage() {
       </SimpleGrid>
     </Stack>
   );
-}
-
-/** Items of one kind in one list: the same item, noted or not, worn or not, across however many slots. */
-type ItemGroup = { item: Item; amount: number; slots: number };
-
-/**
- * Gathers [items] into one row per kind, in the order each kind first appears, adding up
- * the amounts. The game keeps each unstackable item in a slot of its own, so 22 logs would
- * otherwise be 22 rows.
- */
-function groupItems(items: Item[]): ItemGroup[] {
-  const groups = new Map<string, ItemGroup>();
-  for (const item of items) {
-    const key = `${item.itemId}/${item.noted}/${item.worn}`;
-    const group = groups.get(key);
-    if (group) {
-      group.amount += item.amount;
-      group.slots += 1;
-    } else {
-      groups.set(key, { item, amount: item.amount, slots: 1 });
-    }
-  }
-  return [...groups.values()];
 }
 
 /**
