@@ -65,6 +65,23 @@ class BuiltWebTest {
     }
 
     @Test
+    fun `the page tells the browser it can be shown light or dark`() {
+        val page = builtPage.decodeToString()
+        val meta = assertNotNull(Regex("""<meta name="color-scheme" content="([^"]+)"""").find(page), page)
+        assertEquals(setOf("light", "dark"), meta.groupValues[1].split(" ").toSet(), meta.value)
+    }
+
+    @Test
+    fun `the page picks light or dark from the system setting before the bundle loads`() {
+        val page = builtPage.decodeToString()
+        val inlineScript = assertNotNull(Regex("""<script>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL).find(page), "no inline script in $page")
+        val code = inlineScript.groupValues[1]
+        assertTrue("data-mantine-color-scheme" in code && "(prefers-color-scheme: dark)" in code, code)
+        val bundle = page.indexOf("""<script type="module"""")
+        assertTrue(bundle >= 0 && inlineScript.range.first < bundle, "the inline script must come before the bundle's script: $page")
+    }
+
+    @Test
     fun `every page address the router knows gets the built page`() = adminTest {
         val addresses = pageAddresses()
         assertTrue("/players/1" in addresses && "/leaderboards/gained-today" in addresses, "addresses were $addresses")
