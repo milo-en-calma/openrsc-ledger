@@ -59,6 +59,12 @@ function text(html) {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
 }
 
+/** The titles of the red notices in [html], as text with apostrophes put back, in order. */
+function noticeTitles(html) {
+  return [...html.matchAll(/<span\b[^>]*class="[^"]*\bmantine-Alert-label\b[^"]*"[^>]*>([\s\S]*?)<\/span>/g)]
+    .map(([, inside]) => text(inside).replaceAll("&#x27;", "'"));
+}
+
 /** The value of attribute [name] in a tag, or undefined. */
 function attribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
@@ -165,10 +171,30 @@ for (const route of routes) {
   });
 }
 
-// Pages still loading, failed or refused are named from the address.
+// Pages still loading, failed or refused are named from the address. A failed page says what
+// failed in a red notice titled [notice], and a page under another keeps its [back] link to it.
 const unfinished = [
+  { path: "/", seed: { data: [health], failed: [[["players", ""], "No players yet."]] }, name: "Players", notice: "Can't load the players" },
+  {
+    path: "/leaderboards",
+    seed: { data: [health, boards], failed: [[["leaderboard", "overall", false], "No such board."]] },
+    name: "Leaderboards",
+    notice: "Can't load this leaderboard",
+  },
+  {
+    path: "/leaderboards/gained-today",
+    seed: { data: [health, boards], failed: [[["gains", "today", undefined, false], "No history yet."]] },
+    name: "Leaderboards",
+    notice: "Can't load today's gains",
+  },
   { path: "/players/12", seed: {}, name: "Player 12" },
-  { path: "/players/12", seed: { failed: [[["player", 12], "No player 12."]] }, name: "Player 12" },
+  {
+    path: "/players/12",
+    seed: { failed: [[["player", 12], "No player 12."]] },
+    name: "Player 12",
+    notice: "Can't load this player",
+    back: ["/", "← All players"],
+  },
   // Refused at once: nothing is seeded, so a page that asked the server would still be loading.
   { path: "/players/abc", seed: {}, name: "Player abc", refused: "no player with that number." },
   // Numbers written other than as plain digits are refused too, never read as another player.
@@ -176,15 +202,21 @@ const unfinished = [
   { path: "/players/1e3", seed: {}, name: "Player 1e3", refused: "no player with that number." },
   { path: "/players/2147483648", seed: {}, name: "Player 2147483648", refused: "no player with that number." },
   { path: "/items/12", seed: {}, name: "Item 12" },
-  { path: "/items/12", seed: { failed: [[["item-holders", 12], "No item 12."]] }, name: "Item 12" },
+  {
+    path: "/items/12",
+    seed: { failed: [[["item-holders", 12], "No item 12."]] },
+    name: "Item 12",
+    notice: "Can't load this item",
+    back: ["/economy", "← Economy"],
+  },
   { path: "/items/abc", seed: {}, name: "Item abc", refused: "no item with that number." },
   { path: "/items/%20", seed: {}, name: "Item", refused: "no item with that number." },
   { path: "/items/012", seed: {}, name: "Item 012", refused: "no item with that number." },
   { path: "/economy", seed: {}, name: "Economy" },
-  { path: "/economy", seed: { failed: [[["economy"], "No economy yet."]] }, name: "Economy" },
+  { path: "/economy", seed: { failed: [[["economy"], "No economy yet."]] }, name: "Economy", notice: "Can't load the economy" },
 ];
 
-for (const { path, seed, name, refused } of unfinished) {
+for (const { path, seed, name, refused, notice, back } of unfinished) {
   const state = refused ? "refused at once" : seed.failed ? "that failed to load" : "still loading";
   test(`${path} ${state} is named "${name}" in its tab and main heading`, async () => {
     const { html, asked } = await drawPage(path, seed);
@@ -202,7 +234,39 @@ for (const { path, seed, name, refused } of unfinished) {
       assert.ok(html.includes(refused), `"${refused}" is shown`);
     }
   });
+
+  if (!seed.failed) {
+    continue;
+  }
+  test(`${path} that failed to load says what failed and offers a way back`, async () => {
+    const html = await renderPage(path, seed);
+    // One red notice, saying what couldn't be loaded.
+    assert.deepEqual(noticeTitles(html), [notice]);
+    // A page under another links back to it, inside the page itself.
+    const main = html.match(/<main[\s>][\s\S]*?<\/main>/)[0];
+    if (back) {
+      assert.deepEqual(links(main)[0], back);
+    }
+    // The header's links to every page stay, whatever failed.
+    assert.deepEqual(new Set(links(header(html)).map(String)), new Set(pageLinks.map(String)));
+  });
 }
+
+/** The header of the drawn app. */
+function header(html) {
+  return html.match(/<header[\s>][\s\S]*?<\/header>/)[0];
+}
+
+// A failed check of the ledger's health is shown in the header, and the page still draws.
+test("a page whose health check failed says the ledger can't be reached in the header, and still draws", async () => {
+  const { html, asked } = await drawPage("/", { data: [players], failed: [[["health"], "Gone."]] });
+  assert.deepEqual(problems(html), []);
+  assert.deepEqual(keyProblems(asked, [["players", ""], ["health"]], true), []);
+  assert.deepEqual(names(html), { title: "Players · openrsc-ledger", heading: "Players" });
+  assert.ok(text(header(html)).replaceAll("&#x27;", "'").includes("Can't reach the ledger"), "the header says so");
+  assert.ok(text(html).includes("2 players"), "the players are still listed");
+  assert.deepEqual(new Set(links(header(html)).map(String)), new Set(pageLinks.map(String)));
+});
 
 /** Each link in [html] as its address and text, in order. */
 function links(html) {
