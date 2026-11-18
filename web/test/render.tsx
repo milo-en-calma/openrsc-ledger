@@ -14,11 +14,13 @@ export interface Seed {
 
 /**
  * A drawn page, and every query key it asked for while drawing (queries it turned off left out),
- * each written as [keyText] writes it.
+ * each written as [keyText] writes it. [refetchEvery] holds, by the same keys, each
+ * `refetchInterval` the page gave that query, as many as times it asked.
  */
 export interface Drawn {
   html: string;
   asked: string[];
+  refetchEvery: Record<string, unknown[]>;
 }
 
 /** A query key as one string, written the way the query client itself compares keys. */
@@ -55,11 +57,14 @@ export async function drawPage(path: string, { data = [], failed = [] }: Seed = 
   const cache = queryClient.getQueryCache();
   const build = cache.build.bind(cache);
   const asked = new Set<string>();
+  const refetchEvery: Record<string, unknown[]> = {};
   cache.build = (client, options, state) => {
     const query = build(client, options, state);
     const enabled = "enabled" in options ? options.enabled : undefined;
     if (typeof enabled === "function" ? enabled(query) : enabled !== false) {
       asked.add(query.queryHash);
+      // Built by a page's useQuery, so the options are its own, refetchInterval included.
+      (refetchEvery[query.queryHash] ??= []).push((options as { refetchInterval?: unknown }).refetchInterval);
     }
     return query;
   };
@@ -72,5 +77,5 @@ export async function drawPage(path: string, { data = [], failed = [] }: Seed = 
       </QueryClientProvider>
     </MantineProvider>,
   );
-  return { html, asked: [...asked] };
+  return { html, asked: [...asked], refetchEvery };
 }

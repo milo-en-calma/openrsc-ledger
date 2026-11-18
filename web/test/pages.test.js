@@ -150,7 +150,39 @@ for (const { path, data, name } of loaded) {
     const { asked } = await drawPage(path, { data });
     assert.deepEqual(keyProblems(asked, data.map(([key]) => key), true), []);
   });
+
+  test(`${path} asks the server again every 15 seconds for everything it shows`, async () => {
+    const { asked, refetchEvery } = await drawPage(path, { data });
+    assert.deepEqual(refetchProblems(asked, refetchEvery), []);
+  });
 }
+
+/** How often a page asks again for each thing it shows, so an open page never goes stale. */
+const REFETCH_MS = 15_000;
+
+/**
+ * Queries that deliberately don't ask again on a timer, by key as [keyText] writes it, each with
+ * its reason. Empty: everything a page shows refreshes.
+ */
+const refetchExceptions = new Map([]);
+
+/** Every query a page asked for that doesn't refetch every [REFETCH_MS] and isn't an exception. */
+function refetchProblems(asked, refetchEvery) {
+  return asked
+    .filter((key) => !refetchExceptions.has(key))
+    .flatMap((key) =>
+      // A page asks for the same query more than once while drawn, so each wrong value is said once.
+      [...new Set(refetchEvery[key])]
+        .filter((every) => every !== REFETCH_MS)
+        .map((every) => `${key} refetches every ${every}, not ${REFETCH_MS}`),
+    );
+}
+
+test("the refetch exceptions each name a reason", () => {
+  for (const [key, reason] of refetchExceptions) {
+    assert.ok(typeof reason === "string" && reason.trim(), `${key} has no reason`);
+  }
+});
 
 // The routes App.tsx declares, as patterns, each needing a loaded page above.
 const routes = [...readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8").matchAll(/<Route\s+path="([^"]*)"/g)]
