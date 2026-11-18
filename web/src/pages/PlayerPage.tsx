@@ -54,11 +54,15 @@ export function PlayerPage() {
 
 /** Player [id]'s page, named [placeholderName] until the name arrives. */
 function PlayerSheet({ id, placeholderName }: { id: number; placeholderName: string }) {
-  // The gains columns stay blank while loading or if history can't be read; the rest of the page doesn't wait on them.
+  // The gains columns stay blank while loading; the rest of the page doesn't wait on them. If history
+  // can't be read, a line under the skills table says so, since a blank column reads as nothing gained.
   // A player's own page shows their gains whether or not they're staff.
-  const lastHour = gainedBySkill(useGains("hour", { player: id, staff: true }).data?.gains);
-  const todayGains = useGains("today", { player: id, staff: true }).data;
+  const lastHourQuery = useGains("hour", { player: id, staff: true });
+  const todayQuery = useGains("today", { player: id, staff: true });
+  const lastHour = gainedBySkill(lastHourQuery.data?.gains);
+  const todayGains = todayQuery.data;
   const today = gainedBySkill(todayGains?.gains);
+  const gainsUnreadable = lastHourQuery.isError || todayQuery.isError;
 
   const page = useQuery({
     queryKey: ["player", id],
@@ -144,6 +148,11 @@ function PlayerSheet({ id, placeholderName }: { id: number; placeholderName: str
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
+          {gainsUnreadable && (
+            <Text size="sm" c="dimmed">
+              Gains can't be read right now.
+            </Text>
+          )}
         </Stack>
 
         <Stack gap="xs">

@@ -280,6 +280,32 @@ for (const [state, seed] of [
   });
 }
 
+// A player's gains history, when either period can't be read, is said to be unreadable under the
+// skills table, so the blank columns don't read as nothing gained; the rest of the page still draws.
+const gainsUnreadable = "Gains can't be read right now.";
+
+test("/players/1 with its gains read says nothing about unreadable gains", async () => {
+  const html = await renderPage("/players/1", { data: [health, playerPage, ...playerGains] });
+  assert.ok(!text(html).replaceAll("&#x27;", "'").includes(gainsUnreadable), "no unreadable-gains line");
+});
+
+for (const [period, failing, kept] of [
+  ["last hour", playerGains[0][0], playerGains[1]],
+  ["today", playerGains[1][0], playerGains[0]],
+]) {
+  test(`/players/1 whose ${period} gains failed says gains can't be read, and still draws the skills`, async () => {
+    const seed = { data: [health, playerPage, kept], failed: [[failing, "No history yet."]] };
+    const { html, asked } = await drawPage("/players/1", seed);
+    assert.deepEqual(problems(html), []);
+    assert.deepEqual(keyProblems(asked, [...seed.data, ...seed.failed].map(([key]) => key), true), []);
+    assert.deepEqual(names(html), { title: "Aldren · openrsc-ledger", heading: "Aldren" });
+    assert.ok(text(html).replaceAll("&#x27;", "'").includes(gainsUnreadable), "the line is shown");
+    // The skills table still draws, and the page's own notices stay away.
+    assert.match(html, /<td[^>]*>Fishing<\/td>[\s\S]*?<td[^>]*>1,200<\/td>/, "the skills table is drawn");
+    assert.deepEqual(noticeTitles(html), []);
+  });
+}
+
 /** The header of the drawn app. */
 function header(html) {
   return html.match(/<header[\s>][\s\S]*?<\/header>/)[0];
