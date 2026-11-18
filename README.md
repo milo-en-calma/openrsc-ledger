@@ -91,8 +91,7 @@ It takes one config file at most, and one of two options:
 `--print-launch-settings`, which prints what `./ledger` needs from the settings and exits,
 and `--check`, below. Any other option is refused.
 
-**`--check` tries a build against your settings and data without serving anything.** Run
-it before moving a running ledger onto a newer build:
+**`--check` tries a build against your settings and data without serving anything:**
 
 ```sh
 admin-server/build/install/ledger-admin/bin/ledger-admin --check ledger.conf
@@ -205,6 +204,59 @@ that as it is.)
 
 **"Last login" is as close as it gets to "last seen".** The server records when a player
 logs in and whether they are online, but not when they log out.
+
+## Moving a running ledger onto a newer build
+
+**Check the settings with the new build first,** while the old one keeps running. Build the
+new version somewhere apart from the running one, then point its `ledger-admin` at the
+running ledger's settings file:
+
+```sh
+./gradlew :admin-server:installDist
+admin-server/build/install/ledger-admin/bin/ledger-admin --print-launch-settings /path/to/ledger.conf
+```
+
+It reads `ledger.conf` and the game server's settings files exactly as start-up does,
+prints what the launcher needs from them, and exits. It doesn't open the game database,
+the data folder or the history file, and it serves nothing, so it can run beside the old
+ledger on the same port. It exits 0 if the settings would let the new build start, or 1
+with the same one-line `openrsc-ledger can't start: …` message start-up would give.
+
+**What stops start-up.** Newer builds refuse settings that older ones passed over or
+quietly replaced with a default, so a file that worked before may stop here:
+- in `ledger.conf`: a setting the ledger doesn't know, a duration without a unit (`15`
+  rather than `15s`), a copy interval of zero or less, a port that isn't a whole number
+  from 1 to 65535, an empty folder or world name, or text where a number goes (see
+  *Getting started*);
+- in the game server's settings files: a `server_port` or `world_number` that isn't a whole
+  number (once read as the defaults, 43594 and 1), or a `want_equipment_tab` other than
+  `true` or `false` (see *How it reads the game's data*);
+- on the command line: an option `ledger-admin` doesn't know, or a second config file;
+- for `./ledger`: a `$LEDGER_JAVA_HOME` older than Java 25.
+
+`--print-launch-settings` catches every one of these but the last. What it can't see is
+first opened at start-up: the game database file (it must exist, and be SQLite), the data
+folder, and `history.db`. If one of them can't be used, start-up stops with one line naming
+it rather than serving a half-working ledger.
+
+**The history file carries over, both ways.** `history.db`'s table and index are pinned by
+a test (`HistoryLayoutTest`), which fails if a change would alter them. A newer build reads
+the file an older one wrote as it is, and an older build reads the rows a newer one added,
+so moving forward and moving back need no conversion.
+
+**Switching over:**
+1. Stop the running ledger (Ctrl-C, or a TERM signal to `./ledger up`). The game server
+   keeps running.
+2. Copy `data-dir/history.db` somewhere safe. The copy of the game database can always be
+   made again; the history can't.
+3. Start the new build with the same settings file.
+
+**Going back** is the same steps the other way: stop the new build and start the older one
+with the same settings file. Keep the older build, its installed folder or a checkout at
+its commit, until the new one has run for a while. Changes recorded by the newer build stay
+in the history and the older build shows them. If the history file itself is ever the
+problem, stop the ledger and put the copy from step 2 back: anything recorded since is
+lost from the history, though the latest values are recorded again at the next copy.
 
 ## Game data
 
