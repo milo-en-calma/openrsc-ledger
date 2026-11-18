@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 // Built from test/render.tsx by `npm test` just before the tests run.
-import { renderPage } from "../build/render/render.js";
+import { drawPage, keyText, renderPage } from "../build/render/render.js";
 
 // Made-up answers, keyed as the pages ask for them.
 const aldren = { id: 1, name: "Aldren", combatLevel: 12, totalLevel: 40, lastLogin: null, online: true };
@@ -118,11 +119,49 @@ const loaded = [
   { path: "/items/10", data: [health, itemHolders], name: "Coins" },
 ];
 
+/**
+ * What's wrong between the keys a seed holds and the keys the page asked for: a key it asked
+ * for but wasn't given (when [allAsked] is set, as for a loaded page), or one it was given but
+ * never asked for. Without this a renamed key leaves a "loaded" page drawing a loader unseen,
+ * since every page names itself while loading.
+ */
+function keyProblems(asked, seededKeys, allAsked) {
+  const seeded = seededKeys.map(keyText);
+  return [
+    ...(allAsked ? asked.filter((key) => !seeded.includes(key)).map((key) => `asked for ${key} but was given no answer`) : []),
+    ...seeded.filter((key) => !asked.includes(key)).map((key) => `was given ${key} but never asked for it`),
+  ];
+}
+
 for (const { path, data, name } of loaded) {
   test(`${path} has one tab title and one main heading, naming the page, and nothing a screen reader would miss`, async () => {
     const html = await renderPage(path, { data });
     assert.deepEqual(problems(html), []);
     assert.deepEqual(names(html), { title: `${name} · openrsc-ledger`, heading: name });
+  });
+
+  test(`${path} asks for exactly the answers it is given, so it really draws as loaded`, async () => {
+    const { asked } = await drawPage(path, { data });
+    assert.deepEqual(keyProblems(asked, data.map(([key]) => key), true), []);
+  });
+}
+
+// The routes App.tsx declares, as patterns, each needing a loaded page above.
+const routes = [...readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8").matchAll(/<Route\s+path="([^"]*)"/g)]
+  .map(([, route]) => route)
+  .filter((route) => route !== "*");
+
+test("App.tsx declares its routes where this test can read them", () => {
+  assert.ok(routes.length >= 6, `found only ${routes.length} routes: ${routes.join(", ")}`);
+});
+
+for (const route of routes) {
+  test(`route ${route} is drawn loaded at least once`, () => {
+    const pattern = new RegExp(`^${route.replace(/:[^/]+/g, "[^/]+")}$`);
+    assert.ok(
+      loaded.some(({ path }) => pattern.test(path)),
+      `no loaded row draws ${route}`,
+    );
   });
 }
 
@@ -148,8 +187,11 @@ const unfinished = [
 for (const { path, seed, name, refused } of unfinished) {
   const state = refused ? "refused at once" : seed.failed ? "that failed to load" : "still loading";
   test(`${path} ${state} is named "${name}" in its tab and main heading`, async () => {
-    const html = await renderPage(path, seed);
+    const { html, asked } = await drawPage(path, seed);
     assert.deepEqual(problems(html), []);
+    // What it was given is what it asked for, so a failed state comes from the page's own query.
+    const seeded = [...(seed.data ?? []), ...(seed.failed ?? [])].map(([key]) => key);
+    assert.deepEqual(keyProblems(asked, seeded, false), []);
     assert.deepEqual(names(html), { title: `${name} · openrsc-ledger`, heading: name });
     // The failure's message is shown, so the page really drew as failed and not as loading.
     if (seed.failed) {
