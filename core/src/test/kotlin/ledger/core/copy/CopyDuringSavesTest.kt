@@ -147,6 +147,8 @@ class CopyDuringSavesTest {
         }
         assertNull(saverFailure.get(), "a save failed while copies were taken")
         assertEquals(seen.sorted(), seen, "a copy went back to older saves than the copy before it")
+        // Printed before its check, so every run's JUnit report shows how close it came to the 10 it needs.
+        println("Took ${seen.size} copies in $COPYING_MILLIS ms, seeing ${seen.distinct().size} different saves (needs at least 10)")
         assertTrue(seen.distinct().size >= 10, "too few copies landed between saves to tell anything: $seen")
         copier.copy()
         assertEquals(lastSave, newestWholeSave(copier.copy))
