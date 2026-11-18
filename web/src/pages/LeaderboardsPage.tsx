@@ -72,7 +72,8 @@ export function LeaderboardsPage() {
 
 /**
  * A board the server serves, ranked by level and experience. Staff are left off unless [showStaff].
- * While another board's answer loads, the last one's rows stay on screen.
+ * While another answer loads, the last one's rows stay on screen, dimmed and under their own
+ * board's header, so a total level is never shown as a skill's level.
  */
 function ServerBoard({ board, showStaff }: { board: string; showStaff: boolean }) {
   const leaderboard = useQuery({
@@ -103,14 +104,18 @@ function ServerBoard({ board, showStaff }: { board: string; showStaff: boolean }
   if (leaderboard.data.entries.length === 0) {
     return <Text c="dimmed">No players yet.</Text>;
   }
+
+  // The rows on screen may still be the last answer's: another board's, or from before "Show staff" changed.
+  const shown = leaderboard.data.board;
+  const stale = leaderboard.isPlaceholderData || shown.key !== board;
   return (
     <Table.ScrollContainer minWidth={340} type="native">
-      <Table striped highlightOnHover>
+      <Table striped highlightOnHover aria-busy={stale} style={stale ? { opacity: 0.5 } : undefined}>
         <Table.Thead>
           <Table.Tr>
             <Table.Th ta="right">Rank</Table.Th>
             <Table.Th>Name</Table.Th>
-            <Table.Th ta="right">{board === "overall" ? "Total level" : "Level"}</Table.Th>
+            <Table.Th ta="right">{shown.key === "overall" ? "Total level" : "Level"}</Table.Th>
             <Table.Th ta="right">Experience</Table.Th>
           </Table.Tr>
         </Table.Thead>

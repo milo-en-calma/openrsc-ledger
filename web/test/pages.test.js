@@ -312,6 +312,33 @@ for (const [state, seed] of [
   });
 }
 
+// A board's level column is headed for the board its rows came from, not the one in the address.
+// Between picking a board and its answer arriving, the last board's rows stay on screen; they're
+// dimmed and marked busy, so a total level never shows as a skill's level.
+const fishing = [
+  ["leaderboard", "fishing", false],
+  {
+    board: { key: "fishing", name: "Fishing" },
+    entries: [{ rank: 1, playerId: 2, name: "Bryn", level: 9, experience: 900, staff: false }],
+  },
+];
+
+for (const [state, path, rows, header, busy] of [
+  ["Overall showing its own rows", "/leaderboards", overall[1], "Total level", false],
+  ["Fishing showing its own rows", "/leaderboards/fishing", fishing[1], "Level", false],
+  ["Fishing still showing Overall's rows", "/leaderboards/fishing", overall[1], "Total level", true],
+  ["Overall still showing Fishing's rows", "/leaderboards", fishing[1], "Level", true],
+]) {
+  test(`/leaderboards with ${state} heads the levels "${header}"${busy ? " and dims the rows" : ""}`, async () => {
+    const board = path === "/leaderboards" ? "overall" : "fishing";
+    const html = await renderPage(path, { data: [health, boards, [["leaderboard", board, false], rows]] });
+    const table = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
+    const headers = [...table.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)].map(([, inside]) => text(inside));
+    assert.deepEqual(headers, ["Rank", "Name", header, "Experience"]);
+    assert.equal(/<table\b[^>]*\saria-busy="true"/.test(table), busy, "the table is marked busy only while it shows another board's rows");
+  });
+}
+
 // A player's gains history, when either period can't be read, is said to be unreadable under the
 // skills table, so the blank columns don't read as nothing gained; the rest of the page still draws.
 const gainsUnreadable = "Gains can't be read right now.";
