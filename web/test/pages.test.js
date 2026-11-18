@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 // Built from test/render.tsx by `npm test` just before the tests run.
 import { drawPage, keyText, renderPage } from "../build/render/render.js";
+
+// Every test here is registered through `test`, which notes its name, so the last test can
+// catch two sharing one: both would pass under one name, and a failure couldn't say which.
+const testNames = [];
+const test = (name, run) => {
+  testNames.push(name);
+  return nodeTest(name, run);
+};
 
 // Made-up answers, keyed as the pages ask for them.
 const aldren = { id: 1, name: "Aldren", combatLevel: 12, totalLevel: 40, lastLogin: null, online: true };
@@ -437,4 +445,10 @@ test("the checks catch a missing heading, a table without a header row, an unlab
     problems(html).map((problem) => problem.split(":")[0]),
     ["0 main headings", "a table with no header row", "an input with no label", "a link with no text"],
   );
+});
+
+// Keep this last, so every other test's name is noted before it runs.
+test("no two drawn-page tests share a name", () => {
+  const repeated = testNames.filter((name, index) => testNames.indexOf(name) !== index);
+  assert.deepEqual(repeated, []);
 });
