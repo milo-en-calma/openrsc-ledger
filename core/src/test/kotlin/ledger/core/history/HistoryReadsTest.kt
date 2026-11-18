@@ -190,12 +190,17 @@ class HistoryReadsTest {
         val day = Instant.fromEpochMilliseconds(end - 24 * 3600 * 1000) to Instant.fromEpochMilliseconds(end)
 
         // Limits about five times what these take on an ordinary laptop, and below the times of reading every row.
+        // Each time is printed before its check, so every run's JUnit report shows how close it came to its limit.
+        println("Opening the store took $opening (limit 600 ms)")
         assertTrue(opening.inWholeMilliseconds < 600, "Opening the store took $opening")
         val recording = measureTime { assertTrue(history.record(Instant.fromEpochMilliseconds(end + 30_000), current) > 0) }
+        println("Recording a copy took $recording (limit 400 ms)")
         assertTrue(recording.inWholeMilliseconds < 400, "Recording a copy took $recording")
         val everyone = measureTime { history.changes(day.first, day.second) }
+        println("A day's changes took $everyone (limit 1000 ms)")
         assertTrue(everyone.inWholeMilliseconds < 1000, "A day's changes took $everyone")
         val onePlayer = measureTime { history.changes(day.first, day.second, 1234, null) }
+        println("One player's changes took $onePlayer (limit 200 ms)")
         assertTrue(onePlayer.inWholeMilliseconds < 200, "One player's changes took $onePlayer")
     }
 }
