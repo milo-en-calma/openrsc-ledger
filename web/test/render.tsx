@@ -1,10 +1,11 @@
 // Built by `npm test` with `vite build --ssr` into build/render/render.js, so the tests can draw
 // each page to HTML in Node without a browser.
 import { MantineProvider } from "@mantine/core";
-import { hashKey, QueryClient, QueryClientProvider, type QueryKey } from "@tanstack/react-query";
+import { hashKey, QueryClientProvider, type QueryKey } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { App } from "../src/App";
+import { makeQueryClient } from "../src/queryClient";
 
 /** What a page's queries hold when it's drawn: answers by query key, and keys whose fetch failed. */
 export interface Seed {
@@ -15,7 +16,7 @@ export interface Seed {
 /**
  * A drawn page, and every query key it asked for while drawing (queries it turned off left out),
  * each written as [keyText] writes it. [refetchEvery] holds, by the same keys, each
- * `refetchInterval` the page gave that query, as many as times it asked.
+ * `refetchInterval` that query ended up with, as many as times the page asked.
  */
 export interface Drawn {
   html: string;
@@ -38,10 +39,9 @@ export async function renderPage(path: string, seed: Seed = {}): Promise<string>
 
 /** [renderPage], also saying which query keys the page asked for while it was drawn. */
 export async function drawPage(path: string, { data = [], failed = [] }: Seed = {}): Promise<Drawn> {
-  const queryClient = new QueryClient({
-    // A failed query is shown failed, rather than as loading again before a retry.
-    defaultOptions: { queries: { retry: false, retryOnMount: false, staleTime: Infinity } },
-  });
+  // The app's own client, so each query's refetchInterval is the one the browser uses. On top, a
+  // failed query is shown failed, rather than as loading again before a retry.
+  const queryClient = makeQueryClient({ retry: false, retryOnMount: false, staleTime: Infinity });
   for (const [queryKey, answer] of data) {
     queryClient.setQueryData(queryKey, answer);
   }
@@ -63,7 +63,8 @@ export async function drawPage(path: string, { data = [], failed = [] }: Seed = 
     const enabled = "enabled" in options ? options.enabled : undefined;
     if (typeof enabled === "function" ? enabled(query) : enabled !== false) {
       asked.add(query.queryHash);
-      // Built by a page's useQuery, so the options are its own, refetchInterval included.
+      // Built by a page's useQuery with the client's defaults merged in, so refetchInterval is the
+      // one the query ends up with: its own if it sets one, otherwise makeQueryClient's.
       (refetchEvery[query.queryHash] ??= []).push((options as { refetchInterval?: unknown }).refetchInterval);
     }
     return query;

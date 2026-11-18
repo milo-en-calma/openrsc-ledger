@@ -44,7 +44,6 @@ function ItemSheet({ itemId, placeholder }: { itemId: number; placeholder: React
       }
       return data;
     },
-    refetchInterval: 15_000,
   });
 
   if (item.isPending) {

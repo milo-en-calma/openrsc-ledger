@@ -157,7 +157,10 @@ for (const { path, data, name } of loaded) {
   });
 }
 
-/** How often a page asks again for each thing it shows, so an open page never goes stale. */
+/**
+ * How often a page asks again for each thing it shows, so an open page never goes stale. Written
+ * out here rather than imported from src/queryClient.ts, so changing the app's setting fails here.
+ */
 const REFETCH_MS = 15_000;
 
 /**

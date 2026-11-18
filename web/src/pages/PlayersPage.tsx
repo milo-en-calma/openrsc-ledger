@@ -78,7 +78,6 @@ export function PlayersPage() {
     },
     // Keeps the last results on screen while the next search loads.
     placeholderData: keepPreviousData,
-    refetchInterval: 15_000,
   });
 
   const table = useTable({

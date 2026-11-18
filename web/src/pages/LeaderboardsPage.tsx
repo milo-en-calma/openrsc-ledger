@@ -26,7 +26,6 @@ export function LeaderboardsPage() {
       }
       return data.boards;
     },
-    refetchInterval: 15_000,
   });
 
   // Until the list arrives, the board in the address is offered under its own key, so the picker never shows blank.
@@ -88,7 +87,6 @@ function ServerBoard({ board, showStaff }: { board: string; showStaff: boolean }
       return data;
     },
     placeholderData: keepPreviousData,
-    refetchInterval: 15_000,
   });
 
   if (leaderboard.isPending) {

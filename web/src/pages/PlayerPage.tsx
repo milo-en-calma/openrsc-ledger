@@ -73,7 +73,6 @@ function PlayerSheet({ id, placeholderName }: { id: number; placeholderName: str
       }
       return data;
     },
-    refetchInterval: 15_000,
   });
 
   if (page.isPending) {

@@ -80,7 +80,6 @@ export function EconomyPage() {
       }
       return data;
     },
-    refetchInterval: 15_000,
   });
 
   const items = useMemo(() => {

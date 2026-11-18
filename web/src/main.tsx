@@ -3,11 +3,12 @@ import "@mantine/core/styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MantineProvider } from "@mantine/core";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router";
 import { App } from "./App";
+import { makeQueryClient } from "./queryClient";
 
-const queryClient = new QueryClient();
+const queryClient = makeQueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

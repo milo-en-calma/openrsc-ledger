@@ -26,6 +26,5 @@ export function useGains(period: GainsPeriod, { player, staff = false }: { playe
       }
       return { gains: data.gains, countedSince: countedSinceNote(data.recordedSince, start) };
     },
-    refetchInterval: 15_000,
   });
 }

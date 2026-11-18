@@ -13,7 +13,6 @@ export function DataFreshness({ size = "sm" }: { size?: MantineSize }) {
       }
       return data;
     },
-    refetchInterval: 15_000,
   });
 
   if (health.isPending) {
