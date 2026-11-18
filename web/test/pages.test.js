@@ -429,6 +429,46 @@ for (const { path, meant } of unknown) {
   });
 }
 
+// Leaderboards show ranks, levels and experience, never what anyone carries. Each board is drawn
+// from answers that also carry what the players hold, and none of it may reach the page, so the
+// page draws only the columns it names. The items are ones no other answer here names.
+const carried = {
+  inventory: [{ slot: 0, itemId: 1289, name: "Rune scimitar", amount: 1, noted: false, worn: false }],
+  equipment: [{ slot: 0, itemId: 1149, name: "Dragon medium helmet", amount: 1, noted: false, worn: true }],
+  bank: [{ slot: 0, itemId: 1623, name: "Uncut sapphire", amount: 40, noted: true, worn: false }],
+};
+const carriedNames = ["Rune scimitar", "Dragon medium helmet", "Uncut sapphire"];
+const boardsCarrying = [boards[0], boards[1].map((board) => ({ ...board, ...carried }))];
+const boardCarrying = ([key, answer]) => [key, { ...answer, ...carried, entries: answer.entries.map((entry) => ({ ...entry, ...carried })) }];
+const gainsCarrying = ([key, answer]) => [key, { ...answer, ...carried, gains: answer.gains.map((gain) => ({ ...gain, ...carried })) }];
+const fishingBoard = [
+  ["leaderboard", "fishing", false],
+  {
+    board: { key: "fishing", name: "Fishing" },
+    entries: [{ rank: 1, playerId: 2, name: "Bryn", level: 9, experience: 900, staff: false }],
+  },
+];
+// The answers a leaderboard may ask for, by the first word of their query keys.
+const boardQueries = ["health", "leaderboards", "leaderboard", "gains"];
+
+for (const [board, path, answer, rowName] of [
+  ["the overall board", "/leaderboards", boardCarrying(overall), "Aldren"],
+  ["a skill's board", "/leaderboards/fishing", boardCarrying(fishingBoard), "Bryn"],
+  ["the board of experience gained today", "/leaderboards/gained-today", gainsCarrying(gainedToday), "Bryn"],
+]) {
+  test(`${board} draws nothing a player holds, even when its answers carry it`, async () => {
+    const { html, asked } = await drawPage(path, { data: [health, boardsCarrying, answer] });
+    const shown = text(html).toLowerCase();
+    // Guards the check below: a board drawing no rows would pass whatever its answers carried.
+    assert.ok(shown.includes(rowName.toLowerCase()), `the board draws ${rowName}'s row`);
+    for (const name of carriedNames) {
+      assert.ok(!shown.includes(name.toLowerCase()), `${path} draws ${name}`);
+      assert.ok(!html.toLowerCase().includes(name.toLowerCase()), `${path} puts ${name} in its markup`);
+    }
+    assert.deepEqual(asked.map((key) => JSON.parse(key)[0]).filter((first) => !boardQueries.includes(first)), []);
+  });
+}
+
 test("the header's app name is plain text, not a heading", async () => {
   const html = await renderPage("/", { data: [health, players] });
   const header = html.match(/<header[\s>][\s\S]*?<\/header>/)[0];
