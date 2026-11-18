@@ -115,8 +115,12 @@ class StoppedPartWayTest {
         val timeOne = openFiles(launchKillable()).let { process ->
             val started = System.nanoTime()
             process.outputWriter().apply { write("go\n"); flush() }
-            check(process.waitFor(60, TimeUnit.SECONDS) && process.exitValue() == 0) { "the killable ledger failed on its own" }
-            TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - started)
+            val finished = process.waitFor(60, TimeUnit.SECONDS)
+            val took = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - started)
+            // Printed before its check, so every run's JUnit report shows how close it came to the 60 s.
+            println("One uninterrupted run took ${took / 1_000} ms (limit 60000 ms)")
+            check(finished && process.exitValue() == 0) { "the killable ledger failed on its own" }
+            took
         }
         Files.delete(killedData.resolve("history.db"))
         Files.delete(killedData.resolve("server-copy.db"))
@@ -146,6 +150,7 @@ class StoppedPartWayTest {
             next.destroyForcibly().waitFor()
         }
         // Mostly all five of before copying, copying, copied, recording and recorded; three at the least on a busy machine.
+        println("Kills landed in ${seen.distinct().size} different places (needs at least 3): $seen")
         assertTrue(seen.distinct().size >= 3, "the kills landed in too few places to tell anything: $seen")
     }
 

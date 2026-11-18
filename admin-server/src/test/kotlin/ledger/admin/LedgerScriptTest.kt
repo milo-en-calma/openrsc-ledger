@@ -72,6 +72,29 @@ class LedgerScriptTest {
         }
     }
 
+    // --- how close each test came to its limits, printed to its JUnit report ---
+
+    /** Each script run's time in milliseconds, with the seconds it was allowed. */
+    private val scriptRuns = mutableListOf<Pair<Long, Int>>()
+
+    /** How many polls the fake ledger lives for, when it stops by itself after answering. */
+    private var lifePolls: Int? = null
+
+    private fun millisSince(started: Long): Long = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
+
+    @AfterTest
+    fun printMargins() {
+        scriptRuns.maxByOrNull { (millis, limit) -> millis.toDouble() / limit }?.let { (millis, limit) ->
+            val which = if (scriptRuns.size == 1) "The one script run" else "The slowest of ${scriptRuns.size} script runs"
+            println("$which took $millis ms (limit ${limit * 1_000} ms)")
+        }
+        lifePolls?.let { polls ->
+            for (seenAt in lines("health-seen-at")) {
+                println(if (seenAt == "never") "The script never saw the fake ledger answer in its $polls polls" else "The script saw the fake ledger answer by its poll $seenAt of $polls")
+            }
+        }
+    }
+
     // --- fakes ---
 
     private fun executable(path: Path, text: String): Path {
@@ -117,29 +140,39 @@ class LedgerScriptTest {
      * A fake `ledger-admin`: records its arguments and JAVA_HOME, then answers on the ledger port
      * unless [healthy] is false, and runs until stopped. It exits after [lifeSeconds] of real time
      * if that's set: long enough for the script to see it answer and say it's up, even while
-     * other tests run beside this one.
+     * other tests run beside this one. A healthy one with a life notes in health-seen-at the
+     * first of its polls after the script's health check found it answering, or "never".
      */
-    private fun fakeLedger(healthy: Boolean = true, lifeSeconds: Double? = null) = executable(
-        fakes.resolve("ledger-admin"),
-        """
-        #!/bin/bash
-        trap 'echo stopped >>"$dir/ledger-calls"; rm -f "$ports/$ledgerPort"; exit 0' TERM
-        echo "args=${'$'}* JAVA_HOME=${'$'}{JAVA_HOME:-}" >>"$dir/ledger-calls"
-        echo ${'$'}${'$'} >"$pids/ledger"
-        ${if (healthy) "touch \"$ports/$ledgerPort\"" else ""}
-        waited=0
-        while [ ! -e "$stop" ]; do
-            $realSleep $FAKE_POLL_SECONDS
-            waited=${'$'}((waited + 1))
-            ${if (lifeSeconds != null) "[ \"${'$'}waited\" -lt ${(lifeSeconds / FAKE_POLL_SECONDS).roundToInt()} ] || { rm -f \"$ports/$ledgerPort\"; exit 3; }" else ""}
-        done
+    private fun fakeLedger(healthy: Boolean = true, lifeSeconds: Double? = null): Path {
+        val polls = lifeSeconds?.let { (it / FAKE_POLL_SECONDS).roundToInt() }
+        if (healthy) { lifePolls = polls }
+        val notesAnswer = healthy && polls != null
+        return executable(
+            fakes.resolve("ledger-admin"),
+            """
+            #!/bin/bash
+            trap 'echo stopped >>"$dir/ledger-calls"; rm -f "$ports/$ledgerPort"; exit 0' TERM
+            echo "args=${'$'}* JAVA_HOME=${'$'}{JAVA_HOME:-}" >>"$dir/ledger-calls"
+            echo ${'$'}${'$'} >"$pids/ledger"
+            ${if (notesAnswer) "rm -f \"$dir/health-seen\"" else ""}
+            ${if (healthy) "touch \"$ports/$ledgerPort\"" else ""}
+            waited=0
+            seen_at=
+            while [ ! -e "$stop" ]; do
+                $realSleep $FAKE_POLL_SECONDS
+                waited=${'$'}((waited + 1))
+                ${if (notesAnswer) "[ -n \"${'$'}seen_at\" ] || [ ! -e \"$dir/health-seen\" ] || { seen_at=${'$'}waited; echo \"${'$'}waited\" >>\"$dir/health-seen-at\"; }" else ""}
+                ${if (polls != null) "[ \"${'$'}waited\" -lt $polls ] || { ${if (notesAnswer) "[ -n \"${'$'}seen_at\" ] || echo never >>\"$dir/health-seen-at\"; " else ""}rm -f \"$ports/$ledgerPort\"; exit 3; }" else ""}
+            done
 
-        """.trimIndent(),
-    )
+            """.trimIndent(),
+        )
+    }
 
     /**
      * Replaces the script's functions that touch the machine: settings come from here instead of
      * ledger.conf, ports are files in [ports], and the browser is a file of the URLs it was asked to open.
+     * A health check that finds the ledger answering leaves health-seen, for the fake ledger to note.
      */
     private val stubs = """
         load_settings() {
@@ -155,7 +188,7 @@ class LedgerScriptTest {
             default_log="$dir/server/logs/default.log"
         }
         port_open() { [ -e "$ports/${'$'}1" ]; }
-        ledger_health() { [ -e "$ports/${'$'}ledger_port" ]; }
+        ledger_health() { [ -e "$ports/${'$'}ledger_port" ] && : >>"$dir/health-seen"; }
         open_browser() { echo "${'$'}1" >>"$dir/browser"; }
         app="$fakes/ledger-admin"
 
@@ -192,9 +225,12 @@ class LedgerScriptTest {
             put("PATH", path.joinToString(File.pathSeparator))
             putAll(env)
         }
+        val started = System.nanoTime()
         val process = builder.start()
         whileRunning(process)
-        assertTrue(process.waitFor(60, TimeUnit.SECONDS), "the script didn't finish")
+        val finished = process.waitFor(60, TimeUnit.SECONDS)
+        scriptRuns += millisSince(started) to 60
+        assertTrue(finished, "the script didn't finish")
         return Ran(process.exitValue(), out.readText(), err.readText())
     }
 
@@ -202,20 +238,25 @@ class LedgerScriptTest {
     private fun ledger(vararg args: String): Ran {
         val out = dir.resolve("out-${System.nanoTime()}")
         val err = dir.resolve("err-${System.nanoTime()}")
+        val started = System.nanoTime()
         val process = ProcessBuilder(listOf("/bin/bash", script.toString()) + args)
             .redirectOutput(out.toFile())
             .redirectError(err.toFile())
             .start()
-        assertTrue(process.waitFor(30, TimeUnit.SECONDS), "the script didn't finish")
+        val finished = process.waitFor(30, TimeUnit.SECONDS)
+        scriptRuns += millisSince(started) to 30
+        assertTrue(finished, "the script didn't finish")
         return Ran(process.exitValue(), out.readText(), err.readText())
     }
 
     private fun waitUntil(what: String, seconds: Int = 20, condition: () -> Boolean) {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds.toLong())
+        val started = System.nanoTime()
+        val deadline = started + TimeUnit.SECONDS.toNanos(seconds.toLong())
         while (!condition()) {
             check(System.nanoTime() < deadline) { "timed out waiting until $what" }
             Thread.sleep(50)
         }
+        println("Waiting until $what took ${millisSince(started)} ms (limit ${seconds * 1_000} ms)")
     }
 
     private fun interrupt(process: Process) {
@@ -528,11 +569,14 @@ class LedgerScriptTest {
     fun `Ctrl-C while the game server is still starting leaves it starting, and doesn't say it isn't running`() {
         fakeAnt(delaySeconds = 4)
         fakeLedger()
+        var antSeen = 0L
         val ran = bash("up \"\$@\"", "--no-browser") { process ->
             waitUntil("ant has started") { lines("ant-calls").isNotEmpty() }
+            antSeen = System.nanoTime()
             Thread.sleep(500)
             interrupt(process)
         }
+        println("The script ended ${millisSince(antSeen)} ms after the test saw ant start (ant opens its port 4000 ms after starting)")
         assertEquals(0, ran.exit, ran.err)
         assertEquals(emptyList(), lines("ledger-calls"))
         assertTrue(alive("ant"), "the game server carries on starting")
