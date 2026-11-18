@@ -70,6 +70,7 @@ fun Route.economyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: 
             }
         }
     }) {
+        if (call.refusedUnknownQuery()) { return@get }
         if (lastCopy() == null) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
@@ -94,6 +95,10 @@ fun Route.economyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: 
                 description = "The item's holders, from the latest copy of the server's database. Empty if nobody holds it."
                 body<ItemHolders>()
             }
+            code(HttpStatusCode.BadRequest) {
+                description = "The item's number isn't a whole number from 0 to 2147483647."
+                body<NoData>()
+            }
             code(HttpStatusCode.NotFound) {
                 description = "The game data names no item with that number, and nobody holds one."
                 body<NoData>()
@@ -104,14 +109,20 @@ fun Route.economyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: 
             }
         }
     }) {
+        if (call.refusedUnknownQuery()) { return@get }
+        // Read before the copy is checked: waiting for a copy won't mend a mistyped link.
+        val itemId = wholeNumberOrNull(call.parameters["itemId"])
+        if (itemId == null) {
+            call.respond(HttpStatusCode.BadRequest, NoData(BAD_ITEM_ID))
+            return@get
+        }
         if (lastCopy() == null) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
         }
-        val itemId = call.parameters["itemId"]?.toIntOrNull()
-        val holders = itemId?.let { Economy.holders(it, gameData.allHeldItems(), gameData.players()) }.orEmpty()
-        val name = itemId?.let { names.item(it)?.name }
-        if (itemId == null || (name == null && holders.isEmpty())) {
+        val holders = Economy.holders(itemId, gameData.allHeldItems(), gameData.players())
+        val name = names.item(itemId)?.name
+        if (name == null && holders.isEmpty()) {
             call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_ITEM))
             return@get
         }

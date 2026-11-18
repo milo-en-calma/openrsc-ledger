@@ -119,6 +119,7 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: G
             }
         }
     }) {
+        if (call.refusedUnknownQuery("search")) { return@get }
         // SQLite stops reading a pattern at a NUL, so such a search would quietly list everyone.
         val search = call.request.queryParameters["search"]
         if (search != null && search.any { it.isISOControl() }) {
@@ -143,6 +144,10 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: G
                 description = "The player, from the latest copy of the server's database."
                 body<PlayerPage>()
             }
+            code(HttpStatusCode.BadRequest) {
+                description = "The id isn't a whole number from 0 to 2147483647."
+                body<NoData>()
+            }
             code(HttpStatusCode.NotFound) {
                 description = "There's no player with that id, or the player has no maxstats or curstats row, " +
                     "which the server needs to load them too. The answer's message is \"There's no player with that id.\" either way."
@@ -154,11 +159,18 @@ fun Route.playerRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, names: G
             }
         }
     }) {
+        if (call.refusedUnknownQuery()) { return@get }
+        // Read before the copy is checked: waiting for a copy won't mend a mistyped link.
+        val id = wholeNumberOrNull(call.parameters["id"])
+        if (id == null) {
+            call.respond(HttpStatusCode.BadRequest, NoData(BAD_PLAYER_ID))
+            return@get
+        }
         if (lastCopy() == null) {
             call.respond(HttpStatusCode.ServiceUnavailable, NoData(NO_COPY_YET))
             return@get
         }
-        val player = call.parameters["id"]?.toIntOrNull()?.let(gameData::player)
+        val player = gameData.player(id)
         if (player == null) {
             call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_PLAYER))
             return@get

@@ -57,6 +57,7 @@ fun Route.leaderboardRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
             }
         }
     }) {
+        if (call.refusedUnknownQuery()) { return@get }
         call.respond(BoardList(boards))
     }
 
@@ -88,6 +89,7 @@ fun Route.leaderboardRoutes(lastCopy: () -> CopyRecord?, gameData: GameData) {
             }
         }
     }) {
+        if (call.refusedUnknownQuery("staff")) { return@get }
         val board = boards.firstOrNull { it.key == call.parameters["board"] }
         if (board == null) {
             call.respond(HttpStatusCode.NotFound, NoData(NO_SUCH_BOARD))

@@ -4,6 +4,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.jsonArray
+import ledger.admin.routes.BAD_PLAYER_ID
 import ledger.admin.routes.NO_SUCH_PLAYER
 import ledger.core.game.SqliteGameData
 import java.sql.DriverManager
@@ -132,17 +133,20 @@ class PlayersTest {
     }
 
     @Test
-    fun `an unknown player is not found`() = adminTest(game) {
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/players/99").status)
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/players/not-a-number").status)
-    }
-
-    @Test
-    fun `a negative id, or one too large for a player id, is not found and says why`() = adminTest(game) {
-        for (id in listOf("-1", "0", "2147483648", "99999999999999999999")) {
+    fun `an id nobody has is not found and says so`() = adminTest(game) {
+        for (id in listOf("99", "0", "2147483647")) {
             val response = client.get("/api/players/$id")
             assertEquals(HttpStatusCode.NotFound, response.status, id)
             assertEquals("""{"message":"$NO_SUCH_PLAYER"}""", response.bodyAsText(), id)
+        }
+    }
+
+    @Test
+    fun `a negative id, one too large for a player id, or one that isn't a number is refused and says why`() = adminTest(game) {
+        for (id in listOf("-1", "2147483648", "99999999999999999999", "not-a-number")) {
+            val response = client.get("/api/players/$id")
+            assertEquals(HttpStatusCode.BadRequest, response.status, id)
+            assertEquals("""{"message":"$BAD_PLAYER_ID"}""", response.bodyAsText(), id)
         }
     }
 

@@ -297,7 +297,7 @@ class SaveToPageTest {
 
         pages(ledger) {
             for (staff in listOf("", "&staff=false", "&staff=true")) {
-                val onBoard = getJson("/api/leaderboards/mining?x=1$staff")["entries"].jsonArray
+                val onBoard = getJson("/api/leaderboards/mining" + staff.replaceFirst('&', '?'))["entries"].jsonArray
                     .filter { it["experience"].jsonPrimitive.long > 0 }.map { it["playerId"].jsonPrimitive.int to it["staff"] }
                 val inGains = gains(t0, t0 + 1.hours, staff)["gains"].jsonArray.map { it["playerId"].jsonPrimitive.int to it["staff"] }
                 assertEquals(onBoard.sortedBy { it.first }, inGains.sortedBy { it.first }, "asked with \"$staff\"")

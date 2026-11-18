@@ -91,6 +91,7 @@ fun Route.historyRoutes(lastCopy: () -> CopyRecord?, gameData: GameData, history
             }
         }
     }) {
+        if (call.refusedUnknownQuery("from", "to", "player", "skill", "staff")) { return@get }
         val parameters = call.request.queryParameters
         val from = parameters["from"]?.let(::instantOrNull)
         // Left out, `to` is now; given but unreadable, it's an error like a bad `from`.

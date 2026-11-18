@@ -87,14 +87,14 @@ class EconomyTest {
     }
 
     @Test
-    fun `a named item nobody holds has no holders, and an unknown one isn't found`() = adminTest(game) {
+    fun `a named item nobody holds has no holders, an unknown one isn't found, and an unreadable number is refused`() = adminTest(game) {
         // Item 1 is an iron short sword, which nobody in the test database holds.
         assertEquals(
             """{"itemId":1,"name":"Iron Short Sword","held":{"inInventories":0,"inBanks":0,"total":0},"holders":[]}""",
             client.get("/api/items/1/holders").bodyAsText(),
         )
         assertEquals(HttpStatusCode.NotFound, client.get("/api/items/999999/holders").status)
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/items/-1/holders").status)
-        assertEquals(HttpStatusCode.NotFound, client.get("/api/items/coins/holders").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/items/-1/holders").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/items/coins/holders").status)
     }
 }

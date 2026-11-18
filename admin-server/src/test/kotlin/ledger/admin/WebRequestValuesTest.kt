@@ -5,8 +5,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.jsonPrimitive
 import ledger.admin.routes.BAD_PLAYER
-import ledger.admin.routes.NO_SUCH_ITEM
-import ledger.admin.routes.NO_SUCH_PLAYER
+import ledger.admin.routes.BAD_ITEM_ID
+import ledger.admin.routes.BAD_PLAYER_ID
 import ledger.core.game.SqliteGameData
 import ledger.core.history.HistoryReader
 import ledger.core.history.SkillChange
@@ -19,8 +19,8 @@ import kotlin.time.Instant
  * The API answers the values exactly as the web's pages send them. The pages call through
  * openapi-fetch, which writes each query value with JavaScript's `encodeURIComponent` (so a time's
  * colons arrive as `%3A`) and `true` and `false` as words; times come from `Date.toISOString()`,
- * which always has milliseconds; and the player and item pages put `Number(…)` of their own
- * address in the path, which is `NaN` when that address isn't a number.
+ * which always has milliseconds. The player and item pages refuse an address that isn't a
+ * number themselves and never send it, but a link written by hand still gets a message.
  */
 class WebRequestValuesTest {
     private val game = SqliteGameData(testDatabase())
@@ -65,10 +65,10 @@ class WebRequestValuesTest {
     }
 
     @Test
-    fun `a page address that isn't a number gets a message the page can show, not a server error`() = adminTest(game, history = AskedHistory()) {
+    fun `an address that isn't a number gets a message the page can show, not a server error`() = adminTest(game, history = AskedHistory()) {
         val expected = listOf(
-            "/api/players/NaN" to (HttpStatusCode.NotFound to NO_SUCH_PLAYER),
-            "/api/items/NaN/holders" to (HttpStatusCode.NotFound to NO_SUCH_ITEM),
+            "/api/players/NaN" to (HttpStatusCode.BadRequest to BAD_PLAYER_ID),
+            "/api/items/NaN/holders" to (HttpStatusCode.BadRequest to BAD_ITEM_ID),
             "/api/history/gains?from=$pageFrom&player=NaN&staff=true" to (HttpStatusCode.BadRequest to BAD_PLAYER),
         )
         for ((address, answer) in expected) {

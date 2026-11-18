@@ -58,8 +58,9 @@ fun Application.adminModule(
             title = "openrsc-ledger admin API"
             version = "0.1.0"
             description = "Read-only stats for an OpenRSC server. Errors answer as `{\"message\": \"…\"}`, saying what was wrong; " +
-                "any address under `/api` not listed here answers 404 with \"No such API route.\", and a query value given more " +
-                "than once answers 400, naming it. An address that can't be read at all, such as one with a broken %-escape " +
+                "any address under `/api` not listed here answers 404 with \"No such API route.\", a query value given more " +
+                "than once answers 400, naming it, and so does a query value the route doesn't take. Each route reads the " +
+                "values in its address before anything else, so a mistyped one answers 400 even before the first copy. An address that can't be read at all, such as one with a broken %-escape " +
                 "or a request line over 4,096 bytes, gets a plain-text 400 from the web server instead."
         }
         // Schemas named after the class alone (`Health`, not `ledger.admin.routes.Health`),

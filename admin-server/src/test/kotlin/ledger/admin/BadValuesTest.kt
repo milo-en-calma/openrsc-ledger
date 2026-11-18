@@ -9,8 +9,13 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import ledger.admin.routes.BAD_ITEM_ID
 import ledger.admin.routes.BAD_PLAYER
+import ledger.admin.routes.BAD_PLAYER_ID
 import ledger.admin.routes.BAD_SEARCH
+import ledger.admin.routes.NO_SUCH_ITEM
+import ledger.admin.routes.NO_SUCH_PLAYER
+import ledger.admin.routes.unknownQueryName
 import ledger.core.game.SqliteGameData
 import ledger.core.history.HistoryStore
 import java.net.Socket
@@ -33,6 +38,18 @@ class BadValuesTest {
         "", "-1", "0", "99999999999999999999", "abc", "1.5", "%201", "01x", "TRUE", "null",
         "%00", "%F0%9F%90%9F", "%2F", "1%2F2", "..", "%25", "%5F",
         "2026-01-01", "-999999999-01-01T00:00:00Z", "+999999999-12-31T23:59:59.999999999Z",
+    )
+
+    /** Path values that aren't a whole number from 0 to 2147483647, already %-escaped where they need to be. */
+    private val unreadableIds = listOf(
+        "abc", "-1", "1.5", "2147483648", "99999999999999999999", "%201", "1%20", "01x", "0x10", "1e3", "TRUE", "null", "NaN",
+        "%00", "%F0%9F%90%9F", "%25",
+    )
+
+    /** The id routes, each with its message for an id it can't read, and an id that reads but nobody has. */
+    private val idRoutes = listOf(
+        Triple("/api/players/{id}", BAD_PLAYER_ID, NO_SUCH_PLAYER),
+        Triple("/api/items/{itemId}/holders", BAD_ITEM_ID, NO_SUCH_ITEM),
     )
 
     /** A value the web server can't decode: it answers before the ledger's code sees the request. */
@@ -128,6 +145,54 @@ class BadValuesTest {
         assertEquals(message(BAD_PLAYER), spaced.body)
     }
 
+    @Test
+    fun `an id in the path that isn't a whole number answers 400, before and after the first copy`() {
+        for (copied in listOf(true, false)) {
+            onNetty(copied) { port ->
+                for ((path, unreadable, nobody) in idRoutes) {
+                    for (id in unreadableIds) {
+                        val target = path.replace(Regex("\\{[^}]+}"), id)
+                        assertEquals(Answer(400, message(unreadable)), get(port, target), "$target, copied=$copied")
+                    }
+                    // A whole number nobody has reads fine: it's no one, not a mistake in the link.
+                    if (copied) {
+                        val target = path.replace(Regex("\\{[^}]+}"), "2147483647")
+                        assertEquals(Answer(404, message(nobody)), get(port, target), target)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a query name a route doesn't take answers 400, naming the ones it does, before and after the first copy`() {
+        for (copied in listOf(true, false)) {
+            onNetty(copied) { port ->
+                val routes = specRoutes()
+                for (route in routes) {
+                    val taken = route.parameters.filterNot { it.inPath }.map { it.name }
+                    for (unknown in listOf("nosuch", "plyer", "STAFF", "staff_")) {
+                        val target = route.sample + (if ('?' in route.sample) "&" else "?") + "$unknown=1"
+                        assertEquals(Answer(400, message(unknownQueryName(unknown, taken))), get(port, target), "$target, copied=$copied")
+                    }
+                }
+                assertTrue(routes.any { route -> route.parameters.count { !it.inPath } >= 2 }, "no route in openapi.json takes two query values")
+            }
+        }
+    }
+
+    @Test
+    fun `an unknown query name names every value the gains take`() = onNetty { port ->
+        val answer = get(port, "/api/history/gains?from=2026-01-01T00:00:00Z&plyer=1")
+        assertEquals(400, answer.status)
+        assertEquals(
+            message("There's no query value `plyer` here; this route takes `from`, `to`, `player`, `skill` or `staff`."),
+            answer.body,
+        )
+        assertEquals(message("There's no query value `x` here; this route takes none."), get(port, "/api/economy?x=1").body)
+        assertEquals(message("There's no query value `stafff` here; this route takes `staff`."), get(port, "/api/leaderboards/overall?stafff=true").body)
+    }
+
     /** One value a route takes: its [name], and whether it sits in the path rather than the query. */
     private data class Parameter(val name: String, val inPath: Boolean) {
         override fun toString() = name
@@ -135,12 +200,15 @@ class BadValuesTest {
 
     /** A GET route from the committed spec, with the values it takes and the status codes it lists. */
     private data class Route(val path: String, val parameters: List<Parameter>, val statuses: Set<Int>) {
+        /** An address for this route with every value at its sample. */
+        val sample: String get() = url(null)
+
         /** An address for this route with every value at its sample, except [given]'s. */
-        fun url(given: Pair<Parameter, String>): String {
+        fun url(given: Pair<Parameter, String>?): String {
             var url = path
             val query = mutableListOf<String>()
             for (parameter in parameters) {
-                val value = if (parameter == given.first) given.second else sampleValues.getValue(parameter.name)
+                val value = if (given != null && parameter == given.first) given.second else sampleValues.getValue(parameter.name)
                 if (parameter.inPath) { url = url.replace("{${parameter.name}}", value) } else { query += "${parameter.name}=$value" }
             }
             return if (query.isEmpty()) url else "$url?${query.joinToString("&")}"
@@ -178,11 +246,14 @@ class BadValuesTest {
 
     private fun players(answer: Answer) = Json.parseToJsonElement(answer.body)["players"].jsonArray
 
-    /** Runs [block] against the admin module on Netty, on a free port, over the test database's invented players. */
-    private fun onNetty(block: (port: Int) -> Unit) {
+    /**
+     * Runs [block] against the admin module on Netty, on a free port, over the test database's
+     * invented players, or as before the first copy when [copied] is false.
+     */
+    private fun onNetty(copied: Boolean = true, block: (port: Int) -> Unit) {
         val history = HistoryStore(Files.createTempDirectory("ledger-bad-values").resolve("history.db"))
         val server = embeddedServer(Netty, host = HOST, port = 0) {
-            adminModule(lastCopy = { COPIED }, gameData = SqliteGameData(testDatabase()), history = history)
+            adminModule(lastCopy = { if (copied) COPIED else null }, gameData = SqliteGameData(testDatabase()), history = history)
         }.start(wait = false)
         try {
             block(runBlocking { server.engine.resolvedConnectors().first().port })

@@ -24,6 +24,7 @@ fun Route.healthRoutes(lastCopy: () -> CopyRecord?) {
             }
         }
     }) {
+        if (call.refusedUnknownQuery()) { return@get }
         call.respond(Health(status = "ok", dataCopiedAt = lastCopy()?.copiedAt?.toString()))
     }
 }

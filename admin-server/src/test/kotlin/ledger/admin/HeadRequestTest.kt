@@ -35,7 +35,7 @@ class HeadRequestTest {
 
     @Test
     fun `a HEAD request for a mistaken API address gets the same error status as GET`() = onNetty { port ->
-        for ((address, status) in listOf("/api/nope" to 404, "/api/players/abc" to 404, "/api/players?search=a&search=b" to 400, "/api/history/gains" to 400)) {
+        for ((address, status) in listOf("/api/nope" to 404, "/api/players/abc" to 400, "/api/players/999" to 404, "/api/economy?x=1" to 400, "/api/players?search=a&search=b" to 400, "/api/history/gains" to 400)) {
             assertEquals(status, send(port, "GET", address).status, "GET $address")
             val head = send(port, "HEAD", address)
             assertEquals(status, head.status, "HEAD $address")
