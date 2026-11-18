@@ -26,8 +26,11 @@ export function LeaderboardsPage() {
       }
       return data.boards;
     },
-    staleTime: Infinity,
+    refetchInterval: 15_000,
   });
+
+  // Until the list arrives, the board in the address is offered under its own key, so the picker never shows blank.
+  const listedBoards = boards.data ?? (board === GAINED_TODAY ? [] : [{ key: board, name: board }]);
 
   const leaderboard = useQuery({
     queryKey: ["leaderboard", board, showStaff],
@@ -53,7 +56,7 @@ export function LeaderboardsPage() {
         <Select
           label="Leaderboard"
           data={[
-            ...(boards.data ?? []).map((it) => ({ value: it.key, label: it.name })),
+            ...listedBoards.map((it) => ({ value: it.key, label: it.name })),
             { value: GAINED_TODAY, label: "Experience gained today" },
           ]}
           value={board}
@@ -69,6 +72,11 @@ export function LeaderboardsPage() {
           mb={8}
         />
       </Group>
+      {boards.isError && (
+        <Alert color="red" title="Can't load the list of leaderboards">
+          {boards.error.message}
+        </Alert>
+      )}
       {board === GAINED_TODAY ? (
         <GainedTodayBoard showStaff={showStaff} />
       ) : leaderboard.isPending ? (

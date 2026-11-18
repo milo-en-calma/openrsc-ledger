@@ -182,6 +182,12 @@ const unfinished = [
     notice: "Can't load this leaderboard",
   },
   {
+    path: "/leaderboards",
+    seed: { data: [health, overall], failed: [[["leaderboards"], "No boards yet."]] },
+    name: "Leaderboards",
+    notice: "Can't load the list of leaderboards",
+  },
+  {
     path: "/leaderboards/gained-today",
     seed: { data: [health, boards], failed: [[["gains", "today", undefined, false], "No history yet."]] },
     name: "Leaderboards",
@@ -249,6 +255,28 @@ for (const { path, seed, name, refused, notice, back } of unfinished) {
     }
     // The header's links to every page stay, whatever failed.
     assert.deepEqual(new Set(links(header(html)).map(String)), new Set(pageLinks.map(String)));
+  });
+}
+
+/** The value shown in the input labelled [label] in [html], or undefined if there's no such input. */
+function inputValue(html, label) {
+  const forId = [...html.matchAll(/<label\b[^>]*>([\s\S]*?)<\/label>/g)]
+    .find(([, inside]) => text(inside) === label)?.[0]
+    .match(/\sfor="([^"]*)"/)?.[1];
+  const input = [...html.matchAll(/<input\b[^>]*>/g)].map(([tag]) => tag).find((tag) => attribute(tag, "id") === forId);
+  return input && attribute(input, "value");
+}
+
+// Without the list of boards, still loading or failed, the picker names the board in the address
+// and that board is still drawn.
+for (const [state, seed] of [
+  ["still loading", { data: [health, overall] }],
+  ["failed", { data: [health, overall], failed: [[["leaderboards"], "No boards yet."]] }],
+]) {
+  test(`/leaderboards with the list of boards ${state} keeps the picker named and draws the board`, async () => {
+    const html = await renderPage("/leaderboards", seed);
+    assert.equal(inputValue(html, "Leaderboard"), "overall");
+    assert.ok(text(html).includes("Aldren"), "the chosen board is drawn");
   });
 }
 
