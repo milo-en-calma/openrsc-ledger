@@ -258,7 +258,9 @@ const unfinished = [
 ];
 
 for (const { path, seed, name, refused, notice, back } of unfinished) {
-  const state = refused ? "refused at once" : seed.failed ? "that failed to load" : "still loading";
+  // A failed row names its notice, since one page can fail in more than one way.
+  const failedState = `that failed to load ("${notice}")`;
+  const state = refused ? "refused at once" : seed.failed ? failedState : "still loading";
   test(`${path} ${state} is named "${name}" in its tab and main heading`, async () => {
     const { html, asked } = await drawPage(path, seed);
     assert.deepEqual(problems(html), []);
@@ -279,7 +281,7 @@ for (const { path, seed, name, refused, notice, back } of unfinished) {
   if (!seed.failed) {
     continue;
   }
-  test(`${path} that failed to load says what failed and offers a way back`, async () => {
+  test(`${path} ${failedState} says what failed and offers a way back`, async () => {
     const html = await renderPage(path, seed);
     // One red notice, saying what couldn't be loaded.
     assert.deepEqual(noticeTitles(html), [notice]);

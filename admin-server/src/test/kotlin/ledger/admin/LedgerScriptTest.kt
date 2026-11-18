@@ -10,6 +10,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.math.roundToInt
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -41,15 +42,15 @@ class LedgerScriptTest {
 
     /**
      * The commands the script needs, linked one by one, so no system `java` or `ant` is found by
-     * accident. Its `sleep` sleeps a tenth of what it's asked, so the script's once-a-second polls
-     * cost the tests a tenth of a second each.
+     * accident. Its `sleep` sleeps a fiftieth of what it's asked, so the script's once-a-second
+     * polls cost the tests 0.02 seconds each.
      */
     private val tools = dir.resolve("tools").also { tools ->
         tools.createDirectories()
         for (name in listOf("awk", "cat", "dirname", "head", "mkdir", "nohup", "readlink", "rm", "sed", "tail", "touch")) {
             Files.createSymbolicLink(tools.resolve(name), system(name))
         }
-        executable(tools.resolve("sleep"), "#!/bin/bash\nexec $realSleep \"$(${system("awk")} -v s=\"$1\" 'BEGIN { print s / 10 }')\"\n")
+        executable(tools.resolve("sleep"), "#!/bin/bash\nexec $realSleep \"$(${system("awk")} -v s=\"$1\" 'BEGIN { print s / 50 }')\"\n")
     }
 
     private val fakes = dir.resolve("fakes").also { it.createDirectories() }
@@ -107,16 +108,18 @@ class LedgerScriptTest {
         $realSleep $delaySeconds
         ${if (fails) "exit 1" else ""}
         touch "$ports/$gamePort"
-        while [ ! -e "$stop" ]; do $realSleep 0.1; done
+        while [ ! -e "$stop" ]; do $realSleep $FAKE_POLL_SECONDS; done
 
         """.trimIndent(),
     )
 
     /**
      * A fake `ledger-admin`: records its arguments and JAVA_HOME, then answers on the ledger port
-     * unless [healthy] is false, and runs until stopped. It exits after [lifeSeconds] if that's set.
+     * unless [healthy] is false, and runs until stopped. It exits after [lifeSeconds] of real time
+     * if that's set: long enough for the script to see it answer and say it's up, even while
+     * other tests run beside this one.
      */
-    private fun fakeLedger(healthy: Boolean = true, lifeSeconds: Int? = null) = executable(
+    private fun fakeLedger(healthy: Boolean = true, lifeSeconds: Double? = null) = executable(
         fakes.resolve("ledger-admin"),
         """
         #!/bin/bash
@@ -126,9 +129,9 @@ class LedgerScriptTest {
         ${if (healthy) "touch \"$ports/$ledgerPort\"" else ""}
         waited=0
         while [ ! -e "$stop" ]; do
-            $realSleep 0.1
+            $realSleep $FAKE_POLL_SECONDS
             waited=${'$'}((waited + 1))
-            ${if (lifeSeconds != null) "[ \"${'$'}waited\" -lt ${lifeSeconds * 10} ] || { rm -f \"$ports/$ledgerPort\"; exit 3; }" else ""}
+            ${if (lifeSeconds != null) "[ \"${'$'}waited\" -lt ${(lifeSeconds / FAKE_POLL_SECONDS).roundToInt()} ] || { rm -f \"$ports/$ledgerPort\"; exit 3; }" else ""}
         done
 
         """.trimIndent(),
@@ -376,7 +379,7 @@ class LedgerScriptTest {
 
     @Test
     fun `up builds the ledger before anything else`() {
-        fakeLedger(lifeSeconds = 1)
+        fakeLedger(lifeSeconds = 0.5)
         ports.resolve("$gamePort").writeText("")
         bash("up \"\$@\"", "--no-browser")
         assertEquals(listOf("load_settings build"), lines("calls"))
@@ -385,7 +388,7 @@ class LedgerScriptTest {
     @Test
     fun `up starts the game server with ant in its server folder, with the caller's own Java, then the ledger with Java 25`() {
         fakeAnt()
-        fakeLedger(lifeSeconds = 2)
+        fakeLedger(lifeSeconds = 1.0)
         val ran = bash("up \"\$@\"", "--no-browser", env = mapOf("JAVA_HOME" to "/the/callers/java"))
         assertEquals(listOf("cwd=$dir/server args=runserver -DconfFile=local JAVA_HOME=/the/callers/java"), lines("ant-calls"))
         assertEquals("args=${script.parent}/ledger.conf JAVA_HOME=$java25", lines("ledger-calls").first())
@@ -398,7 +401,7 @@ class LedgerScriptTest {
     @Test
     fun `up leaves a running game server alone and starts only the ledger`() {
         fakeAnt()
-        fakeLedger(lifeSeconds = 1)
+        fakeLedger(lifeSeconds = 0.5)
         ports.resolve("$gamePort").writeText("")
         val ran = bash("up \"\$@\"", "--no-browser")
         assertEquals(emptyList(), lines("ant-calls"))
@@ -409,7 +412,7 @@ class LedgerScriptTest {
     @Test
     fun `up --ledger-only never starts the game server, running or not`() {
         fakeAnt()
-        fakeLedger(lifeSeconds = 1)
+        fakeLedger(lifeSeconds = 0.5)
         val down = bash("up \"\$@\"", "--ledger-only", "--no-browser")
         assertTrue(down.out.contains("\nledger: The game server isn't running, and --ledger-only leaves it so; starting only the ledger.\n"), down.out)
         assertTrue(down.out.contains("ledger: The ledger is up. Ctrl-C stops it.\n"), down.out)
@@ -441,7 +444,7 @@ class LedgerScriptTest {
 
     @Test
     fun `up opens the ledger in the browser unless told not to`() {
-        fakeLedger(lifeSeconds = 1)
+        fakeLedger(lifeSeconds = 0.5)
         ports.resolve("$gamePort").writeText("")
         bash("up \"\$@\"")
         assertEquals(listOf("http://127.0.0.1:$ledgerPort/"), lines("browser"))
@@ -451,7 +454,7 @@ class LedgerScriptTest {
 
     @Test
     fun `when the ledger stops by itself, up says so and fails`() {
-        fakeLedger(lifeSeconds = 1)
+        fakeLedger(lifeSeconds = 0.5)
         ports.resolve("$gamePort").writeText("")
         val ran = bash("up \"\$@\"", "--no-browser")
         assertEquals(1, ran.exit)
@@ -461,7 +464,7 @@ class LedgerScriptTest {
 
     @Test
     fun `when the ledger exits before answering its health check, up fails without waiting on`() {
-        fakeLedger(healthy = false, lifeSeconds = 1)
+        fakeLedger(healthy = false, lifeSeconds = 0.5)
         ports.resolve("$gamePort").writeText("")
         val ran = bash("up \"\$@\"", "--no-browser")
         assertEquals(1, ran.exit)
@@ -474,7 +477,7 @@ class LedgerScriptTest {
     @Test
     fun `when the ledger runs but never answers its health check, up says so and stops it`() {
         // The script gives it 120 seconds; the test shortens that to 5 in the text it runs, which
-        // the tests' sleep makes half a second.
+        // the tests' sleep makes a tenth of a second.
         fakeLedger(healthy = false)
         ports.resolve("$gamePort").writeText("")
         val ran = bash("up \"\$@\"", "--no-browser", replacing = mapOf("wait_for 120 " to "wait_for 5 "))
@@ -590,5 +593,10 @@ class LedgerScriptTest {
                 "tail -n 40 -F $dir/server/logs/runescape_1.log\n",
             ran.out,
         )
+    }
+
+    private companion object {
+        /** How often the fake game server and ledger look for the test's stop file, in real seconds. */
+        const val FAKE_POLL_SECONDS = 0.02
     }
 }
